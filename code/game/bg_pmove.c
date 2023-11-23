@@ -349,10 +349,41 @@ static void PM_SetMovementDir( void ) {
 	}
 }
 
+/*
+=============
+PM_Overbounce
+=============
+*/
+static void PM_Overbounce( void ) {
+	float		vel;
+
+	// sanity check on downwards velocity
+	if (pm->ps->velocity[2] >= 0)
+		return;
+
+	// apply friction if moving horizontally
+	// TODO: test if needed
+	PM_Friction();
+
+	// record speed before clipping
+	vel = VectorLength(pm->ps->velocity);
+
+	// recursive clip until velocity is pointing in intended direction
+	PM_ClipVelocity(pm->ps->velocity, pml.groundTrace.plane.normal,
+		pm->ps->velocity, OVERCLIP );
+
+	// return velocity scale to before landing, now pointing in intended direction
+	VectorNormalize(pm->ps->velocity);
+	VectorScale(pm->ps->velocity, vel, pm->ps->velocity);
+
+	PM_AddEvent( EV_OVERBOUNCE );
+}
 
 /*
 =============
 PM_CheckJump
+
+also checks for overbounce
 =============
 */
 static qboolean PM_CheckJump( void ) {
@@ -1280,6 +1311,9 @@ static void PM_CheckDuck (void)
 		return;
 	}
 
+	// check to see if on the ground
+	PM_GroundTrace();
+
 	if (pm->cmd.upmove < 0)
 	{	// duck
 		pm->ps->pm_flags |= PMF_DUCKED;
@@ -1296,7 +1330,9 @@ static void PM_CheckDuck (void)
 		}
 	}
 
-	if (pm->ps->pm_flags & PMF_DUCKED)
+	Com_Printf("PMF_DUCKED: %i\n", pml.groundPlane);
+
+	if (pm->ps->pm_flags & PMF_DUCKED && pml.groundPlane)
 	{
 		pm->maxs[2] = 16;
 		pm->ps->viewheight = CROUCH_VIEWHEIGHT;
