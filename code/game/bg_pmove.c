@@ -557,8 +557,11 @@ static void PM_WaterMove( void ) {
 		PM_ClipVelocity (pm->ps->velocity, pml.groundTrace.plane.normal, 
 			pm->ps->velocity, OVERCLIP );
 
-		VectorNormalize(pm->ps->velocity);
-		VectorScale(pm->ps->velocity, vel, pm->ps->velocity);
+		// TODO: fix hacky way of preventing overbounces
+		if (VectorLength(pm->ps->velocity) > 1) {
+			VectorNormalize(pm->ps->velocity);
+			VectorScale(pm->ps->velocity, vel, pm->ps->velocity);
+		}
 	}
 
 	PM_SlideMove( qfalse );
@@ -823,9 +826,12 @@ static void PM_WalkMove( void ) {
 	PM_ClipVelocity (pm->ps->velocity, pml.groundTrace.plane.normal, 
 		pm->ps->velocity, OVERCLIP );
 
-	// don't decrease velocity when going up or down a slope
-	VectorNormalize(pm->ps->velocity);
-	VectorScale(pm->ps->velocity, vel, pm->ps->velocity);
+	// TODO: fix hacky way of preventing overbounces
+	if ( VectorLength(pm->ps->velocity) > 1 ) {
+		// don't decrease velocity when going up or down a slope
+		VectorNormalize(pm->ps->velocity);
+		VectorScale(pm->ps->velocity, vel, pm->ps->velocity);
+	}
 
 	// don't do anything if standing still
 	if (!pm->ps->velocity[0] && !pm->ps->velocity[1]) {
@@ -1274,6 +1280,8 @@ static void PM_SetWaterLevel( void ) {
 PM_CheckDuck
 
 Sets mins, maxs, and pm->ps->viewheight
+
+TODO: fix crouch camera midair
 ==============
 */
 static void PM_CheckDuck (void)
@@ -1329,8 +1337,6 @@ static void PM_CheckDuck (void)
 				pm->ps->pm_flags &= ~PMF_DUCKED;
 		}
 	}
-
-	Com_Printf("PMF_DUCKED: %i\n", pml.groundPlane);
 
 	if (pm->ps->pm_flags & PMF_DUCKED && pml.groundPlane)
 	{
