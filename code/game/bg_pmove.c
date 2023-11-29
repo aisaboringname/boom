@@ -177,8 +177,8 @@ static void PM_Friction( void ) {
 	vel = pm->ps->velocity;
 	
 	VectorCopy( vel, vec );
-	if ( pml.walking ) {
-		vec[2] = 0;	// ignore slope movement
+	if ( pml.walking || ( pm->ps->pm_flags & PMF_OVERBOUNCE ) ) {
+		vec[2] = 0;	// ignore slope movement or vertical movement during overbounce
 	}
 
 	speed = VectorLength(vec);
@@ -351,39 +351,7 @@ static void PM_SetMovementDir( void ) {
 
 /*
 =============
-PM_Overbounce
-=============
-*/
-static void PM_Overbounce( void ) {
-	float		vel;
-
-	// sanity check on downwards velocity
-	if (pm->ps->velocity[2] >= 0)
-		return;
-
-	// apply friction if moving horizontally
-	// TODO: test if needed
-	PM_Friction();
-
-	// record speed before clipping
-	vel = VectorLength(pm->ps->velocity);
-
-	// recursive clip until velocity is pointing in intended direction
-	PM_ClipVelocity(pm->ps->velocity, pml.groundTrace.plane.normal,
-		pm->ps->velocity, OVERCLIP );
-
-	// return velocity scale to before landing, now pointing in intended direction
-	VectorNormalize(pm->ps->velocity);
-	VectorScale(pm->ps->velocity, vel, pm->ps->velocity);
-
-	PM_AddEvent( EV_OVERBOUNCE );
-}
-
-/*
-=============
 PM_CheckJump
-
-also checks for overbounce
 =============
 */
 static qboolean PM_CheckJump( void ) {
@@ -396,20 +364,13 @@ static qboolean PM_CheckJump( void ) {
 		return qfalse;
 	}
 
-	// must wait for jump to be released
-	if ( pm->ps->pm_flags & PMF_JUMP_HELD ) {
-		// clear upmove so cmdscale doesn't lower running speed
-		pm->cmd.upmove = 0;
-		return qfalse;
-	}
-
 	pml.groundPlane = qfalse;		// jumping away
 	pml.walking = qfalse;
 	pm->ps->pm_flags |= PMF_JUMP_HELD;
 
 	pm->ps->groundEntityNum = ENTITYNUM_NONE;
 	pm->ps->velocity[2] = JUMP_VELOCITY;
-	PM_AddEvent( EV_JUMP );
+	PM_AddEvent(EV_JUMP);
 
 	if ( pm->cmd.forwardmove >= 0 ) {
 		PM_ForceLegsAnim( LEGS_JUMP );
@@ -739,7 +700,6 @@ static void PM_WalkMove( void ) {
 		return;
 	}
 
-
 	if ( PM_CheckJump () ) {
 		// jumped away
 		if ( pm->waterlevel > 1 ) {
@@ -949,6 +909,46 @@ static int PM_FootstepForSurface( void ) {
 	return EV_FOOTSTEP;
 }
 
+/*
+=============
+PM_Overbounce
+=============
+*/
+static void PM_Overbounce( void ) {
+	float		vel;
+
+	pm->ps->pm_flags |= PMF_OVERBOUNCE;
+
+	// test to see if needed
+	PM_Friction ();
+
+	// record speed before clipping
+	vel = VectorLength(pml.previous_velocity);
+
+	// recursive clip until velocity is pointing in intended direction
+	PM_ClipVelocity(pm->ps->velocity, pml.groundTrace.plane.normal,
+		pm->ps->velocity, OVERCLIP );
+	Com_Printf("FORWARDMOVE: %d\nRIGHTMOVE: %d\n", pm->cmd.forwardmove, pm->cmd.rightmove);
+
+	// set vector to be vertical if not holding movement
+	if ( pm->cmd.forwardmove == 0 && pm->cmd.rightmove == 0 ) {
+		pm->ps->velocity[0] = 0;
+		pm->ps->velocity[1] = 0;
+	}
+
+	// return velocity scale to before landing, now pointing in intended direction
+	VectorNormalize(pm->ps->velocity);
+	VectorScale(pm->ps->velocity, vel, pm->ps->velocity);
+
+	// add small jump if moving horizontally
+	if ( abs( pm->ps->velocity[0] ) > 0 || abs( pm->ps->velocity[1] ) > 0 ) {
+		pm->ps->velocity[2] = JUMP_VELOCITY / 2;
+	}
+
+	PM_AddEvent( EV_OVERBOUNCE );
+
+	return;
+}
 
 /*
 =================
@@ -991,9 +991,8 @@ static void PM_CrashLand( void ) {
 	delta = vel + t * acc;
 	delta = delta*delta * 0.0001;
 
-	// ducking while falling doubles damage
-	if ( pm->ps->pm_flags & PMF_DUCKED ) {
-		delta *= 2;
+	if ( pm->cmd.buttons & BUTTON_OVERBOUNCE && vel < 0 ) {
+		PM_Overbounce();
 	}
 
 	// never take falling damage if completely underwater
@@ -1197,9 +1196,10 @@ static void PM_GroundTrace( void ) {
 		pml.walking = qfalse;
 		return;
 	}
-
+	
 	pml.groundPlane = qtrue;
 	pml.walking = qtrue;
+	
 
 	// hitting solid ground will end a waterjump
 	if (pm->ps->pm_flags & PMF_TIME_WATERJUMP)
@@ -1284,7 +1284,7 @@ Sets mins, maxs, and pm->ps->viewheight
 TODO: fix crouch camera midair
 ==============
 */
-static void PM_CheckDuck (void)
+static void PM_CheckDuck ( void )
 {
 	trace_t	trace;
 
@@ -1319,9 +1319,6 @@ static void PM_CheckDuck (void)
 		return;
 	}
 
-	// check to see if on the ground
-	PM_GroundTrace();
-
 	if (pm->cmd.upmove < 0)
 	{	// duck
 		pm->ps->pm_flags |= PMF_DUCKED;
@@ -1338,7 +1335,10 @@ static void PM_CheckDuck (void)
 		}
 	}
 
-	if (pm->ps->pm_flags & PMF_DUCKED && pml.groundPlane)
+	// trace to ground for view height
+	PM_GroundTrace();
+
+	if (pm->ps->pm_flags & PMF_DUCKED && pml.walking )
 	{
 		pm->maxs[2] = 16;
 		pm->ps->viewheight = CROUCH_VIEWHEIGHT;
@@ -1960,6 +1960,11 @@ void PmoveSingle (pmove_t *pmove) {
 	if ( pm->cmd.upmove < 10 ) {
 		// not holding jump
 		pm->ps->pm_flags &= ~PMF_JUMP_HELD;
+	}
+
+	if (pm->cmd.buttons & ~BUTTON_OVERBOUNCE) {
+		// not holding overbounce
+		pm->ps->pm_flags &= ~PMF_OVERBOUNCE;
 	}
 
 	// decide if backpedaling animations should be used
