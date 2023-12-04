@@ -45,6 +45,12 @@ float	pm_waterfriction = 1.0f;
 float	pm_flightfriction = 3.0f;
 float	pm_spectatorfriction = 5.0f;
 
+// TODO: tweak these to feel good
+float	pm_aircontrol = 165.0f;
+float	pm_airstopaccelerate = 2.5f;
+float	pm_wishspeed = 30.0f;
+float	pm_strafeaccelerate = 70.0f;
+
 int		c_pmove = 0;
 
 
@@ -231,6 +237,42 @@ static void PM_Friction( void ) {
 
 /*
 ==============
+PM_AirControl
+
+Allows for in-air control if left or right is held
+==============
+*/
+static void PM_AirControl( vec3_t wishdir, float wishspeed ) {
+	float	zspeed, speed, dot, k;
+	int		i;
+
+	if ( ( pm->ps->movementDir && pm->ps->movementDir != 4 && pm->ps->movementDir != -4 && pm->ps->movementDir != 12 ) || wishspeed == 0.0 )
+		return; // can't control movement if not moveing forward or backward
+
+	zspeed = pm->ps->velocity[2];
+	pm->ps->velocity[2] = 0;
+	speed = VectorNormalize(pm->ps->velocity);
+
+	dot = DotProduct(pm->ps->velocity, wishdir);
+	k = 32;
+	k *= pm_aircontrol * dot * dot * pml.frametime;
+
+
+	if (dot > 0) {	// we can't change direction while slowing down
+		for (i = 0; i < 2; i++)
+			pm->ps->velocity[i] = pm->ps->velocity[i] * speed + wishdir[i] * k;
+		VectorNormalize(pm->ps->velocity);
+	}
+
+	for (i = 0; i < 2; i++)
+		pm->ps->velocity[i] *= speed;
+
+	pm->ps->velocity[2] = zspeed;
+}
+
+
+/*
+==============
 PM_Accelerate
 
 Handles user intended acceleration
@@ -274,7 +316,6 @@ static void PM_Accelerate( vec3_t wishdir, float wishspeed, float accel ) {
 	VectorMA( pm->ps->velocity, canPush, pushDir, pm->ps->velocity );
 #endif
 }
-
 
 
 /*
@@ -599,6 +640,8 @@ static void PM_AirMove( void ) {
 	vec3_t		wishdir;
 	float		wishspeed;
 	float		scale;
+	float		accel;
+	float		ctrlwishspeed;
 	usercmd_t	cmd;
 
 	PM_Friction();
@@ -627,8 +670,25 @@ static void PM_AirMove( void ) {
 	wishspeed = VectorNormalize(wishdir);
 	wishspeed *= scale;
 
+	// air control implementation
+	ctrlwishspeed = wishspeed;
+	if (DotProduct(pm->ps->velocity, wishdir) < 0) {
+		accel = pm_airstopaccelerate;
+	} else {
+		accel = pm_airaccelerate;
+	}
+	if ((pm->ps->movementDir == 2 || pm->ps->movementDir == -2 || pm->ps->movementDir == 10) ||
+		(pm->ps->movementDir == 6 || pm->ps->movementDir == -6 || pm->ps->movementDir == 14)) {
+		if (wishspeed > pm_wishspeed) {
+			wishspeed = pm_wishspeed;
+		}
+		accel = pm_strafeaccelerate;
+	}
+
 	// not on ground, so little effect on velocity
-	PM_Accelerate (wishdir, wishspeed, pm_airaccelerate);
+	PM_Accelerate (wishdir, wishspeed, accel);
+	// add air control functionality
+	PM_AirControl (wishdir, ctrlwishspeed);
 
 	// we may have a ground plane that is very steep, even
 	// though we don't have a groundentity
@@ -928,10 +988,12 @@ static void PM_Overbounce( void ) {
 
 	pm->ps->pm_flags |= PMF_OVERBOUNCE;
 
-	
+	VectorCopy(pml.previous_velocity, pm->ps->velocity);
 
-	// record speed before clipping
-	vel = VectorLength(pml.previous_velocity);
+	PM_Friction();
+
+	// record previous speed
+	vel = VectorLength(pm->ps->velocity);
 
 	// recursive clip until velocity is pointing in intended direction
 	PM_ClipVelocity(pm->ps->velocity, pml.groundTrace.plane.normal,
@@ -1674,7 +1736,7 @@ static void PM_Weapon( void ) {
 	// check for out of ammo
 	if ( ! pm->ps->ammo[ pm->ps->weapon ] ) {
 		PM_AddEvent( EV_NOAMMO );
-		pm->ps->weaponTime += 500;
+		pm->ps->weaponTime += 100;		// TEST: shorter delay so should feel better?
 		return;
 	}
 
