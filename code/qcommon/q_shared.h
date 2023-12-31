@@ -26,39 +26,42 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // q_shared.h -- included first by ALL program modules.
 // A user mod should never modify this file
 
-#ifdef STANDALONE
-  #define PRODUCT_NAME				"iofoo3"
-  #define BASEGAME					"foobar"
-  #define CLIENT_WINDOW_TITLE		"changeme"
-  #define CLIENT_WINDOW_MIN_TITLE	"changeme2"
-  #define HOMEPATH_NAME_UNIX		".foo"
-  #define HOMEPATH_NAME_WIN			"FooBar"
-  #define HOMEPATH_NAME_MACOSX		HOMEPATH_NAME_WIN
-//  #define STEAMPATH_NAME			"Foo Bar"
-//  #define STEAMPATH_APPID         ""
-  #define GAMENAME_FOR_MASTER		"foobar"	// must NOT contain whitespace
-  #define CINEMATICS_LOGO		"foologo.roq"
-  #define CINEMATICS_INTRO		"intro.roq"
-//  #define LEGACY_PROTOCOL	// You probably don't need this for your standalone game
-//  #define PROTOCOL_HANDLER		"foobar"
-#else
-  #define PRODUCT_NAME				"ioq3"
+//#ifdef STANDALONE
+  #define PRODUCT_NAME				"boom"
   #define BASEGAME					"baseq3"
-  #define CLIENT_WINDOW_TITLE		"ioquake3"
-  #define CLIENT_WINDOW_MIN_TITLE	"ioq3"
+  #define CLIENT_WINDOW_TITLE		"boom"
+  #define CLIENT_WINDOW_MIN_TITLE	"boom"
   #define HOMEPATH_NAME_UNIX		".q3a"
-  #define HOMEPATH_NAME_WIN			"Quake3"
+  #define HOMEPATH_NAME_WIN			"boom"
   #define HOMEPATH_NAME_MACOSX		HOMEPATH_NAME_WIN
+// TODO: change STEAMPATH_NAME and STEAMPATH_APPID
   #define STEAMPATH_NAME			"Quake 3 Arena"
   #define STEAMPATH_APPID			"2200"
-  #define GOGPATH_ID				"1441704920"
-  #define MSSTORE_PATH				"Quake 3"
-  #define GAMENAME_FOR_MASTER		"Quake3Arena"
-  #define CINEMATICS_LOGO		"idlogo.RoQ"
-  #define CINEMATICS_INTRO		"intro.RoQ"
-  #define LEGACY_PROTOCOL
-  #define PROTOCOL_HANDLER		"quake3"
-#endif
+//  #define GOGPATH_ID				"1441704920"
+//  #define MSSTORE_PATH				"Quake 3"
+  #define GAMENAME_FOR_MASTER		"boom"	// must NOT contain whitespace
+  #define CINEMATICS_LOGO			"idlogo.RoQ"
+  #define CINEMATICS_INTRO			"intro.RoQ"
+  #define LEGACY_PROTOCOL	// You probably don't need this for your standalone game
+  #define PROTOCOL_HANDLER			"boom"
+//#else
+//  #define PRODUCT_NAME				"ioq3"
+//  #define BASEGAME					"baseq3"
+//  #define CLIENT_WINDOW_TITLE		"ioquake3"
+//  #define CLIENT_WINDOW_MIN_TITLE	"ioq3"
+//  #define HOMEPATH_NAME_UNIX		".q3a"
+//  #define HOMEPATH_NAME_WIN			"Quake3"
+//  #define HOMEPATH_NAME_MACOSX		HOMEPATH_NAME_WIN
+//  #define STEAMPATH_NAME			"Quake 3 Arena"
+//  #define STEAMPATH_APPID			"2200"
+//  #define GOGPATH_ID				"1441704920"
+//  #define MSSTORE_PATH				"Quake 3"
+//  #define GAMENAME_FOR_MASTER		"Quake3Arena"
+//  #define CINEMATICS_LOGO		"idlogo.RoQ"
+//  #define CINEMATICS_INTRO		"intro.RoQ"
+//  #define LEGACY_PROTOCOL
+//  #define PROTOCOL_HANDLER		"quake3"
+//#endif
 
 // Heartbeat for dpmaster protocol. You shouldn't change this unless you know what you're doing
 #define HEARTBEAT_FOR_MASTER		"DarkPlaces"
@@ -379,6 +382,10 @@ typedef	int	fixed16_t;
 
 #ifndef M_PI
 #define M_PI		3.14159265358979323846f	// matches value in gcc v2 math.h
+#endif
+
+#ifndef M_TAU
+#define M_TAU		6.28318530717958647693f
 #endif
 
 #define NUMVERTEXNORMALS	162

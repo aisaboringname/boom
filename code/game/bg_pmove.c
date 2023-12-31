@@ -51,6 +51,16 @@ float	pm_airstopaccelerate = 2.5f;
 float	pm_wishspeed = 30.0f;
 float	pm_strafeaccelerate = 70.0f;
 
+// TODO: add customizable deadzones
+// sin( M_TAU/16 ) = +/- sqrt( 2 - sqrt(2) ) / 2 = sqrt( 1 - cos^2( M_TAU/16) ) = 0.382683432365f
+// cos( M_TAU/16 ) = +/- sqrt( 2 + sqrt(2) ) / 2 = sqrt( 1 - sin^2( M_TAU/16) ) = 0.923879532511f
+float	pm_xdeadzone = 0.923879532511f;
+float	pm_xpythagoreanid = 0.382683432365f;
+// sin( 3*M_TAU/16 ) = +/- sqrt( 2 + sqrt(2) ) / 2 = sqrt( 1 - cos^2( 3*M_TAU/16) ) = 0.923879532511f
+// cos( 3*M_TAU/16 ) = +/- sqrt( 2 - sqrt(2) ) / 2 = sqrt( 1 - sin^2( 3*M_TAU/16) ) = 0.382683432365f
+float	pm_ydeadzone = 0.923879532511f;
+float	pm_ypythagoreanid = 0.382683432365f;
+
 int		c_pmove = 0;
 
 
@@ -239,15 +249,15 @@ static void PM_Friction( void ) {
 ==============
 PM_AirControl
 
-Allows for in-air control if left or right is held
+Allows for in-air control if left, right, or forwards is held
 ==============
 */
 static void PM_AirControl( vec3_t wishdir, float wishspeed ) {
 	float	zspeed, speed, dot, k;
 	int		i;
 
-	if ( ( pm->ps->movementDir && pm->ps->movementDir != 4 && pm->ps->movementDir != -4 && pm->ps->movementDir != 12 ) || wishspeed == 0.0 )
-		return; // can't control movement if not moveing forward or backward
+	if ( ( pm->ps->movementDir && pm->ps->movementDir != 4 ) || wishspeed == 0.0 )
+		return; // can't control movement if not moving forward or backward
 
 	zspeed = pm->ps->velocity[2];
 	pm->ps->velocity[2] = 0;
@@ -360,23 +370,44 @@ to the facing dir
 ================
 */
 static void PM_SetMovementDir( void ) {
+	vec3_t		inputdir;
+	float		fmove, smove;
+
+	fmove = pm->cmd.forwardmove;
+	smove = pm->cmd.rightmove;
+	
+	VectorSet( inputdir, fmove, smove, 0 );
+	// TEST: check to see if VectorNormalizeFast is needed
+	VectorNormalize( inputdir );
+
+	// inputdir[0] = up = fmove = y
+	// inputdir[1] = right = smove = x
+
 	if ( pm->cmd.forwardmove || pm->cmd.rightmove ) {
-		if ( pm->cmd.rightmove == 0 && pm->cmd.forwardmove > 0 ) {
-			pm->ps->movementDir = 0;
-		} else if ( pm->cmd.rightmove < 0 && pm->cmd.forwardmove > 0 ) {
-			pm->ps->movementDir = 1;
-		} else if ( pm->cmd.rightmove < 0 && pm->cmd.forwardmove == 0 ) {
-			pm->ps->movementDir = 2;
-		} else if ( pm->cmd.rightmove < 0 && pm->cmd.forwardmove < 0 ) {
-			pm->ps->movementDir = 3;
-		} else if ( pm->cmd.rightmove == 0 && pm->cmd.forwardmove < 0 ) {
-			pm->ps->movementDir = 4;
-		} else if ( pm->cmd.rightmove > 0 && pm->cmd.forwardmove < 0 ) {
-			pm->ps->movementDir = 5;
-		} else if ( pm->cmd.rightmove > 0 && pm->cmd.forwardmove == 0 ) {
-			pm->ps->movementDir = 6;
-		} else if ( pm->cmd.rightmove > 0 && pm->cmd.forwardmove > 0 ) {
-			pm->ps->movementDir = 7;
+		if ( inputdir[0] >= pm_ydeadzone ) {
+			pm->ps->movementDir = 0;	// up
+			Com_Printf("UP: %f %f\n", inputdir[0], inputdir[1]);
+		} else if ( inputdir[1] < -pm_ypythagoreanid && inputdir[0] > pm_xpythagoreanid ) {
+			pm->ps->movementDir = 1;	// up left
+			Com_Printf("UP LEFT: %f %f\n", inputdir[0], inputdir[1]);
+		} else if ( inputdir[1] <= -pm_xdeadzone ) {
+			pm->ps->movementDir = 2;	// left
+			Com_Printf("LEFT: %f %f\n", inputdir[0], inputdir[1]);
+		} else if ( inputdir[1] < -pm_ypythagoreanid && inputdir[0] < -pm_xpythagoreanid ) {
+			pm->ps->movementDir = 3;	// down left
+			Com_Printf("DOWN LEFT: %f %f\n", inputdir[0], inputdir[1]);
+		} else if ( inputdir[0] <= -pm_ydeadzone ) {
+			pm->ps->movementDir = 4;	// down
+			Com_Printf("DOWN: %f %f\n", inputdir[0], inputdir[1]);
+		} else if ( inputdir[1] > pm_ypythagoreanid && inputdir[0] < -pm_xpythagoreanid ) {
+			pm->ps->movementDir = 5;	// down right
+			Com_Printf("DOWN RIGHT: %f %f\n", inputdir[0], inputdir[1]);
+		} else if ( inputdir[1] >= pm_xdeadzone ) {
+			pm->ps->movementDir = 6;	// right
+			Com_Printf("RIGHT: %f %f\n", inputdir[0], inputdir[1]);
+		} else if ( inputdir[1] > pm_ypythagoreanid && inputdir[0] > pm_xpythagoreanid ) {
+			pm->ps->movementDir = 7;	// up right
+			Com_Printf("UP RIGHT: %f %f\n", inputdir[0], inputdir[1]);
 		}
 	} else {
 		// if they aren't actively going directly sideways,
@@ -627,7 +658,7 @@ static void PM_FlyMove( void ) {
 }
 
 
-/*
+/*x
 ===================
 PM_AirMove
 
@@ -652,7 +683,7 @@ static void PM_AirMove( void ) {
 	cmd = pm->cmd;
 	scale = PM_CmdScale( &cmd );
 
-	// set the movementDir so clients can rotate the legs for strafing
+	// set the movementDir so clients can rotate the legs for strafing, as well as air control
 	PM_SetMovementDir();
 
 	// project moves down to flat plane
@@ -672,13 +703,12 @@ static void PM_AirMove( void ) {
 
 	// air control implementation
 	ctrlwishspeed = wishspeed;
-	if (DotProduct(pm->ps->velocity, wishdir) < 0) {
+	if ( DotProduct (pm->ps->velocity, wishdir) < 0 ) {
 		accel = pm_airstopaccelerate;
 	} else {
 		accel = pm_airaccelerate;
 	}
-	if ((pm->ps->movementDir == 2 || pm->ps->movementDir == -2 || pm->ps->movementDir == 10) ||
-		(pm->ps->movementDir == 6 || pm->ps->movementDir == -6 || pm->ps->movementDir == 14)) {
+	if ( pm->ps->movementDir == 2 || pm->ps->movementDir == 6 ) {
 		if (wishspeed > pm_wishspeed) {
 			wishspeed = pm_wishspeed;
 		}
