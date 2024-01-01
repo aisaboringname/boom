@@ -1031,6 +1031,11 @@ qboolean UI_ConsoleCommand( int realTime ) {
 		return qtrue;
 	}
 
+	if ( Q_stricmp (cmd, "ui_dynamicmenu") == 0 ) {
+		UI_DynamicCommandMenu_f();
+		return qtrue;
+	}
+
 	if ( Q_stricmp (cmd, "ui_teamOrders") == 0 ) {
 		UI_TeamOrdersMenu_f();
 		return qtrue;
