@@ -373,41 +373,41 @@ static void PM_SetMovementDir( void ) {
 	vec3_t		inputdir;
 	float		fmove, smove;
 
-	fmove = pm->cmd.forwardmove;
-	smove = pm->cmd.rightmove;
-	
-	VectorSet( inputdir, fmove, smove, 0 );
-	// TEST: check to see if VectorNormalizeFast is needed
-	VectorNormalize( inputdir );
-
-	// inputdir[0] = up = fmove = y
-	// inputdir[1] = right = smove = x
-
 	if ( pm->cmd.forwardmove || pm->cmd.rightmove ) {
+		fmove = pm->cmd.forwardmove;
+		smove = pm->cmd.rightmove;
+
+		VectorSet( inputdir, fmove, smove, 0 );
+		// TEST: check to see if VectorNormalizeFast is needed
+		VectorNormalize( inputdir );
+
+		// inputdir[0] = up = fmove = y
+		// inputdir[1] = right = smove = x
+		
 		if ( inputdir[0] >= pm_ydeadzone ) {
 			pm->ps->movementDir = 0;	// up
-			Com_Printf("UP: %f %f\n", inputdir[0], inputdir[1]);
+			Com_Printf("UP: %f %f (%f, %f)\n", inputdir[0], inputdir[1], smove, fmove);
 		} else if ( inputdir[1] < -pm_ypythagoreanid && inputdir[0] > pm_xpythagoreanid ) {
 			pm->ps->movementDir = 1;	// up left
-			Com_Printf("UP LEFT: %f %f\n", inputdir[0], inputdir[1]);
+			Com_Printf("UP LEFT: %f %f (%f, %f)\n", inputdir[0], inputdir[1], smove, fmove);
 		} else if ( inputdir[1] <= -pm_xdeadzone ) {
 			pm->ps->movementDir = 2;	// left
-			Com_Printf("LEFT: %f %f\n", inputdir[0], inputdir[1]);
+			Com_Printf("LEFT: %f %f (%f, %f)\n", inputdir[0], inputdir[1], smove, fmove);
 		} else if ( inputdir[1] < -pm_ypythagoreanid && inputdir[0] < -pm_xpythagoreanid ) {
 			pm->ps->movementDir = 3;	// down left
-			Com_Printf("DOWN LEFT: %f %f\n", inputdir[0], inputdir[1]);
+			Com_Printf("DOWN LEFT: %f %f (%f, %f)\n", inputdir[0], inputdir[1], smove, fmove);
 		} else if ( inputdir[0] <= -pm_ydeadzone ) {
 			pm->ps->movementDir = 4;	// down
-			Com_Printf("DOWN: %f %f\n", inputdir[0], inputdir[1]);
+			Com_Printf("DOWN: %f %f (%f, %f)\n", inputdir[0], inputdir[1], smove, fmove);
 		} else if ( inputdir[1] > pm_ypythagoreanid && inputdir[0] < -pm_xpythagoreanid ) {
 			pm->ps->movementDir = 5;	// down right
-			Com_Printf("DOWN RIGHT: %f %f\n", inputdir[0], inputdir[1]);
+			Com_Printf("DOWN RIGHT: %f %f (%f, %f)\n", inputdir[0], inputdir[1], smove, fmove);
 		} else if ( inputdir[1] >= pm_xdeadzone ) {
 			pm->ps->movementDir = 6;	// right
-			Com_Printf("RIGHT: %f %f\n", inputdir[0], inputdir[1]);
+			Com_Printf("RIGHT: %f %f (%f, %f)\n", inputdir[0], inputdir[1], smove, fmove);
 		} else if ( inputdir[1] > pm_ypythagoreanid && inputdir[0] > pm_xpythagoreanid ) {
 			pm->ps->movementDir = 7;	// up right
-			Com_Printf("UP RIGHT: %f %f\n", inputdir[0], inputdir[1]);
+			Com_Printf("UP RIGHT: %f %f (%f, %f)\n", inputdir[0], inputdir[1], smove, fmove);
 		}
 	} else {
 		// if they aren't actively going directly sideways,
