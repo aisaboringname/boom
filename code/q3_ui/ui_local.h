@@ -329,6 +329,9 @@ extern void UI_CreditMenu( void );
 //
 extern void InGame_Cache( void );
 extern void UI_InGameMenu(void);
+extern void UI_DynamicMenuCache(void);
+extern void UI_DynamicMenu( void );
+extern void UI_DynamicCommandMenu_f( void );
 
 //
 // ui_confirm.c

@@ -347,3 +347,543 @@ void UI_InGameMenu( void ) {
 	InGame_MenuInit();
 	UI_PushMenu( &s_ingame.menu );
 }
+
+/*
+===========================
+
+INGAME DYNAMIC COMMAND MENU
+
+===========================
+*/
+
+
+#define MAX_DYNAMICDEPTH 	6
+#define MAX_MENUSTRING 		16
+
+#define MENUSPACE_X		4
+#define MENUSPACE_Y		1
+
+
+typedef void (*createHandler)(void);
+typedef void (*eventHandler)(int index);
+
+
+typedef struct {
+	char text[MAX_MENUSTRING];
+	int index;
+	int id;
+	createHandler createSubMenu;
+	eventHandler runEvent;
+} dynamicitem_t;
+
+
+typedef struct {
+	menuframework_s menu;
+
+	menutext_s item[MAX_MENUITEMS];
+	dynamicitem_t data[MAX_MENUITEMS];
+
+	int start[MAX_DYNAMICDEPTH];
+	int end[MAX_DYNAMICDEPTH];	// indicates to (last item + 1)
+	int active[MAX_DYNAMICDEPTH];
+
+	int gametype;
+	int depth;
+} dynamicmenu_t;
+
+static dynamicmenu_t s_dynamic;
+
+/*
+=================
+DynamicMenu_InitSubMenu
+=================
+*/
+static qboolean DynamicMenu_SubMenuInit( void ) {
+	int pos;
+
+	if (s_dynamic.depth == MAX_DYNAMICDEPTH)
+		return qfalse;
+
+	if (s_dynamic.depth == 0)
+		pos = 0;
+	else
+		pos = s_dynamic.end[s_dynamic.depth - 1];
+
+	if (pos == MAX_MENUITEMS)
+		return qfalse;
+
+	s_dynamic.depth++;
+	s_dynamic.active[s_dynamic.depth - 1] = -1;
+	s_dynamic.start[s_dynamic.depth - 1] = pos;
+	s_dynamic.end[s_dynamic.depth - 1] = pos;
+
+	return qtrue;
+}
+
+/*
+=================
+DynamicMenu_AddItem
+=================
+*/
+static qboolean DynamicMenu_AddItem( const char* string, 
+	int id, createHandler crh, eventHandler evh ) {
+	int index, depth;
+
+	depth = s_dynamic.depth - 1;
+	index = s_dynamic.end[depth];
+
+	if (index == MAX_MENUITEMS)
+		return qfalse;
+
+	// can't have submenu and event attached to menu item	
+	if (crh && evh)
+		return qfalse;
+
+	if (!string || !string[0])
+		string = "[no text]";
+
+	s_dynamic.data[index].index = index;
+	s_dynamic.data[index].id = id;
+	s_dynamic.data[index].createSubMenu = crh;
+	s_dynamic.data[index].runEvent = evh;
+	Q_strncpyz(s_dynamic.data[index].text, string, MAX_MENUSTRING);
+
+	s_dynamic.end[depth]++;
+
+	return qtrue;
+}
+
+/*
+=================
+DynamicMenu_FinishInitSubMenu
+=================
+*/
+static void DynamicMenu_FinishSubMenuInit( void ) {
+	int depth;
+	int width, maxwidth;
+	int height, lineheight;
+	int posx, posy;
+	int i, count, start, active;
+	float scale;
+	menutext_s* ptr;
+	qboolean submenu;
+
+	depth = s_dynamic.depth - 1;
+
+	// find the widest item
+	submenu = qfalse;
+	maxwidth = 0;
+	start = s_dynamic.start[depth];
+	count = s_dynamic.end[depth] - start;
+	for (i = 0; i < count; i++) {
+		width = UI_ProportionalStringWidth(s_dynamic.data[i + start].text);
+		if (width > maxwidth)
+			maxwidth = width;
+
+		if (s_dynamic.data[i + start].createSubMenu)
+			submenu = qtrue;
+	}
+
+	scale = UI_ProportionalSizeScale(UI_SMALLFONT);
+	if (submenu) {
+		// space and submenu pointer
+		maxwidth += UI_ProportionalStringWidth(" \r");
+	}
+
+	maxwidth *= scale;
+
+	// determine the position of the menu
+	lineheight = PROP_HEIGHT * scale + 2 * MENUSPACE_Y;
+	height = count * lineheight;
+
+	if (depth == 0) {
+		posy = 240 - height / 2;
+		posx = 0;
+	} else {
+		active = s_dynamic.active[depth - 1];
+		posx = s_dynamic.item[active].generic.right;
+		posy = s_dynamic.item[active].generic.top;
+
+		if (posy + height > 480 - 64)
+			posy = 480 - 64 - height;
+	}
+
+	for (i = 0; i < count; i++) {
+		ptr = &s_dynamic.item[start + i];
+
+		ptr->generic.x = posx + MENUSPACE_X;
+		ptr->generic.y = posy + i * lineheight + MENUSPACE_Y;
+
+		ptr->generic.left = posx;
+		ptr->generic.right = posx + maxwidth + 2 * MENUSPACE_X;
+		ptr->generic.top = posy + i * lineheight;
+		ptr->generic.bottom = posy + (i + 1) * lineheight - 1;
+
+		ptr->generic.flags &= ~(QMF_HIDDEN | QMF_INACTIVE);
+	}
+}
+
+/*
+=================
+DynamicMenu_OnActiveList
+=================
+*/
+static qboolean DynamicMenu_OnActiveList( int index ) {
+	int depth;
+	int i;
+
+	depth = s_dynamic.depth;
+
+	for (i = 0; i < depth ; i++)
+		if (s_dynamic.active[i] == index)
+			return qtrue;
+			
+	return qfalse;
+}
+
+/*
+=================
+DynamicMenu_MenuItemDraw
+=================
+*/
+static void DynamicMenu_MenuItemDraw( void* self ) {
+	int		x;
+	int		y;
+
+	int		w, h;
+	float* color;
+	int		style;
+	menutext_s* t;
+	vec4_t	back_color;
+
+	t = (menutext_s*)self;
+
+
+	// draw the background;
+	x = t->generic.left;
+	y = t->generic.top;
+	w = t->generic.right - x;
+	h = t->generic.bottom - y;
+
+	back_color[0] = 1.0;
+	back_color[1] = 1.0;
+	back_color[2] = 1.0;
+	if (DynamicMenu_OnActiveList(t->generic.id)) {
+		back_color[3] = 0.33;
+	} else {
+		back_color[3] = 0.1;
+	}
+
+	UI_FillRect(x, y, w, h, back_color);
+
+	// draw the text
+	x = t->generic.x;
+	y = t->generic.y;
+
+	if (t->generic.flags & QMF_GRAYED)
+		color = text_color_disabled;
+	else
+		color = t->color;
+
+	style = t->style;
+	if (t->generic.flags & QMF_PULSEIFFOCUS) {
+		if (Menu_ItemAtCursor(t->generic.parent) == t) {
+			style |= UI_PULSE;
+		} else {
+			style |= UI_INVERSE;
+		}
+	}
+
+	UI_DrawProportionalString(x, y, t->string, style, color);
+
+	// draw the cursor for submenu if needed
+	x = t->generic.left + w;
+	if (s_dynamic.data[t->generic.id].createSubMenu)
+	{
+		UI_DrawChar(x, y, 13, style | UI_RIGHT, color);
+	}
+}
+
+/*
+=================
+DynamicMenu_MenuDraw
+=================
+*/
+static void DynamicMenu_MenuDraw( void )
+{
+	//	UI_DrawString(0, 0, va("depth:%i", s_dynamic.depth), 
+	//		UI_SMALLFONT, color_white);
+	//	UI_DrawString(0, 32, va("active: %i %i %i", 
+	//		s_dynamic.active[0], s_dynamic.active[1], s_dynamic.active[2] ),
+	//		UI_SMALLFONT, color_white);
+
+	Menu_Draw(&s_dynamic.menu);
+}
+
+/*
+=================
+DynamicMenu_IndexDepth
+=================
+*/
+static int DynamicMenu_IndexDepth( int pos )
+{
+	int i;
+	int maxdepth, depth;
+
+	maxdepth = s_dynamic.depth;
+	depth = 0;
+	for (i = 0; i < maxdepth; i++)
+	{
+		if (pos < s_dynamic.end[i])
+		{
+			depth = i + 1;
+			break;
+		}
+	}
+
+	return depth;
+}
+
+/*
+=================
+DynamicMenu_SetFocus
+=================
+*/
+static void DynamicMenu_SetFocus( int pos )
+{
+	int i;
+	int depth, newdepth;
+
+	depth = s_dynamic.depth;
+	newdepth = DynamicMenu_IndexDepth(pos);
+
+	if (newdepth == 0)
+	{
+		Com_Printf("SetFocus: index %i outside menu\n", pos);
+		return;
+	}
+
+	s_dynamic.active[ newdepth - 1 ] = pos;
+	s_dynamic.depth = newdepth;
+
+	// hide any previous submenus
+	if (newdepth < depth)
+	{
+		for (i = s_dynamic.start[ newdepth ]; 
+			i < s_dynamic.end[depth - 1]; i++)
+		{
+			s_dynamic.item[i].generic.flags |= (QMF_HIDDEN|QMF_INACTIVE);
+			s_dynamic.item[i].generic.flags &= ~QMF_GRAYED;
+		}
+	}
+
+	s_dynamic.active[newdepth - 1] = pos;
+
+	// show this sub-menu (if needed)
+	if (s_dynamic.data[pos].createSubMenu)
+		s_dynamic.data[pos].createSubMenu();
+}
+
+/*
+=================
+DynamicMenu_ClearFocus
+
+DUMMY FUNCTION: REMOVE IF UNNECESSARY
+used for activating functionality when the cursor is moved from the menu
+=================
+*/
+static void DynamicMenu_ClearFocus( int pos )
+{
+}
+
+/*
+=================
+DynamicMenu_ActivateControl
+=================
+*/
+static void DynamicMenu_ActivateControl( int pos )
+{
+	int i;
+	int depth;
+
+	depth = DynamicMenu_IndexDepth(pos);
+
+	if (depth == 0)
+	{
+		Com_Printf("ActivateControl: index %i outside menu\n", pos);
+		return;
+	}
+
+	// not at the deepest level, can't be a command
+	if (depth < s_dynamic.depth)
+		return;
+
+	if (s_dynamic.data[pos].runEvent)
+		s_dynamic.data[pos].runEvent(pos);
+	else
+		Com_Printf("ActivateControl: index %i has no event\n", pos);
+}
+
+/*
+=================
+DynamicMenu_MenuEvent
+=================
+*/
+static void DynamicMenu_MenuEvent( void* self, int event )
+{
+	menutext_s* t;
+
+	t = (menutext_s*)self;
+
+	switch (event)
+	{
+	case QM_GOTFOCUS:
+		DynamicMenu_SetFocus(t->generic.id);
+		break;
+	case QM_LOSTFOCUS:
+		DynamicMenu_ClearFocus(t->generic.id);
+		break;
+	case QM_ACTIVATED:
+		DynamicMenu_ActivateControl(t->generic.id);
+		break;
+	}
+}
+
+/*
+=================
+DynamicMenu_Close
+=================
+*/
+static void DynamicMenu_Close( void )
+{
+	UI_PopMenu();
+}
+
+/*
+=================
+DM_Close_Event
+
+FOR TESTING ONLY
+=================
+*/
+static void DM_Close_Event( int index )
+{
+	UI_PopMenu();
+}
+
+/*
+=================
+DynamicMenu_InitPrimaryMenu
+=================
+*/
+static void DynamicMenu_InitPrimaryMenu( void )
+{
+	DynamicMenu_SubMenuInit();
+
+	DynamicMenu_AddItem("Close!", 0, NULL, DM_Close_Event);
+
+	DynamicMenu_FinishSubMenuInit();
+}
+
+/*
+=================
+DynamicMenu_MenuInit
+=================
+*/
+static void DynamicMenu_MenuInit( void )
+{
+	int i;
+
+	s_dynamic.menu.draw = DynamicMenu_MenuDraw;
+	s_dynamic.menu.fullscreen = qfalse;
+	s_dynamic.menu.wrapAround = qfalse;
+
+	for (i = 0; i < MAX_MENUITEMS; i++)
+	{
+		s_dynamic.item[i].generic.type = MTYPE_PTEXT;
+		s_dynamic.item[i].generic.flags = QMF_INACTIVE
+			|QMF_HIDDEN|QMF_NODEFAULTINIT|QMF_PULSEIFFOCUS;
+		s_dynamic.item[i].generic.ownerdraw = DynamicMenu_MenuItemDraw ;
+		s_dynamic.item[i].generic.callback = DynamicMenu_MenuEvent ;
+		s_dynamic.item[i].generic.id = i;
+		s_dynamic.item[i].string = s_dynamic.data[i].text;
+		s_dynamic.item[i].style = UI_SMALLFONT|UI_DROPSHADOW;
+		s_dynamic.item[i].color = color_red;
+
+		Menu_AddItem(&s_dynamic.menu, &s_dynamic.item[i]);
+	}
+
+	// start up the menu system
+	s_dynamic.depth = 0;
+
+//	Uncomment the next line if adding part II as well
+//	DynamicMenu_InitMapItems();
+
+	DynamicMenu_InitPrimaryMenu();
+}
+
+/*
+=================
+UI_DynamicMenuCache
+
+DUMMY FUNCTION: REMOVE IF UNNECESSRAY
+used for graphics that need caching
+=================
+*/
+void UI_DynamicMenuCache( void )
+{
+}
+
+/*
+=================
+UI_DynamicMenu
+=================
+*/
+void UI_DynamicMenu( void )
+{
+	uiClientState_t	cs;
+	char	info[MAX_INFO_STRING];
+	int	playerTeam;
+
+	trap_GetClientState( &cs );
+	trap_GetConfigString( CS_PLAYERS 
+		+ cs.clientNum, info, MAX_INFO_STRING );
+	playerTeam = atoi(Info_ValueForKey(info, "t"));
+
+//	Uncomment the next two code lines if adding part II 
+//	as well, or specs can't use the menu either
+//	if (playerTeam == TEAM_SPECTATOR)
+//		return;
+
+	memset(&s_dynamic.menu, 0, sizeof(dynamicmenu_t));
+
+	s_dynamic.gametype = (int)trap_Cvar_VariableValue("g_gametype");
+
+//	Uncomment the next three lines if adding part II as well
+//	if (s_dynamic.gametype != GT_TEAM && 
+//			s_dynamic.gametype != GT_CTF)
+//		return;
+
+	UI_DynamicMenuCache();
+
+	// force as top level menu
+	uis.menusp = 0;
+
+	// set menu cursor to a nice location
+	uis.cursorx = 50;
+	uis.cursory = 240;
+
+	DynamicMenu_MenuInit();
+
+	UI_PushMenu( &s_dynamic.menu );
+}
+
+/*
+=================
+UI_DynamicCommandMenu_f
+=================
+*/
+void UI_DynamicCommandMenu_f( void )
+{
+	UI_DynamicMenu();
+}
