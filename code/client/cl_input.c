@@ -387,11 +387,9 @@ CL_GyroEvent
 void CL_GyroEvent( float dx, float dy, int time ) {
 	if ( Key_GetCatcher( ) & KEYCATCH_UI ) {
 		// evil floating point bit level hacking 2: electric boogaloo
-		Com_Printf("dx: %f\ndx (int): %d\ndy: %f\ndy (int): %d\n", dx, * ( int * ) &dx, dy, * ( int * ) &dy);
 		VM_Call( uivm, UI_GYRO_EVENT, * ( int * ) &dx, * ( int * ) &dy );
 	} else if (Key_GetCatcher( ) & KEYCATCH_CGAME) {
 		// evil floating point bit level hacking 2: electric boogaloo
-		Com_Printf("dx: %f\ndx (int): %d\ndy: %f\ndy (int): %d\n", dx, * ( int * ) &dx, dy, * ( int * ) &dy);
 		VM_Call (cgvm, CG_GYRO_EVENT, * ( int * ) &dx, * ( int * ) &dy );
 	} else {
 		cl.gyroDx[cl.mouseIndex] += dx;

@@ -1160,7 +1160,7 @@ static void IN_ProcessEvents( void )
 				}
 
 				vec3_t	gyro_data, accel_data;
-				int		camera[2];
+				float	camera[2];
 
 				if ( e.csensor.sensor == SDL_SENSOR_GYRO ) {
 					VectorSet( gyro_data, e.csensor.data[0], e.csensor.data[1], e.csensor.data[2]);
@@ -1170,10 +1170,6 @@ static void IN_ProcessEvents( void )
 
 				camera[0] = gyro_data[0];
 				camera[1] = gyro_data[1];
-				
-				Com_Printf("accel_data[0]: %f\naccel_data[1]: %f\naccel_data[2]: %f\n", accel_data[0], accel_data[1], accel_data[2]);
-
-				Com_Printf("gyro_data[0]: %f\ngyro_data[1]: %f\n", gyro_data[0], gyro_data[1]);
 
 				Com_QueueEvent( in_eventTime, SE_GYRO, 0, 0, -camera[1], -camera[0], 0, NULL );	// TODO: add sens slider
 				break;

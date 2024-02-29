@@ -73,7 +73,6 @@ Q_EXPORT intptr_t vmMain( int command, int arg0, int arg1, int arg2, int arg3, i
 		return 0;
 	case CG_GYRO_EVENT:
 		// evil floating point bit level hacking 2: electric boogaloo reversal
-		Com_Printf("arg0: %f\narg1: %f\n", * ( float * ) &arg0, * ( float * ) &arg1);
 		CG_GyroEvent( * ( float * ) &arg0, * ( float * ) &arg1);
 		return 0;
 	case CG_EVENT_HANDLING:
