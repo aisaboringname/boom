@@ -71,6 +71,11 @@ Q_EXPORT intptr_t vmMain( int command, int arg0, int arg1, int arg2, int arg3, i
 #endif
 		CG_MouseEvent(arg0, arg1);
 		return 0;
+	case CG_GYRO_EVENT:
+		// evil floating point bit level hacking 2: electric boogaloo reversal
+		Com_Printf("arg0: %f\narg1: %f\n", * ( float * ) &arg0, * ( float * ) &arg1);
+		CG_GyroEvent( * ( float * ) &arg0, * ( float * ) &arg1);
+		return 0;
 	case CG_EVENT_HANDLING:
 		CG_EventHandling(arg0);
 		return 0;
@@ -1979,6 +1984,9 @@ void CG_KeyEvent(int key, qboolean down) {
 }
 
 void CG_MouseEvent(int x, int y) {
+}
+
+void CG_GyroEvent(float x, float y) {
 }
 #endif
 

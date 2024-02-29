@@ -355,7 +355,7 @@ typedef enum {
 	TRAP_TESTPRINTFLOAT
 } sharedTraps_t;
 
-typedef intptr_t (QDECL *vmMainProc)(int callNum, int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6, int arg7, int arg8, int arg9, int arg10, int arg11);
+typedef intptr_t (QDECL *vmMainProc)(int callNum, int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6, int arg7, int arg8, int arg9, int arg10, int arg11 );
 
 void	VM_Init( void );
 vm_t	*VM_Create( const char *module, intptr_t (*systemCalls)(intptr_t *), 
@@ -800,22 +800,24 @@ typedef enum
 typedef enum {
 	// SE_NONE must be zero
 	SE_NONE = 0,		// evTime is still valid
-	SE_KEY,			// evValue is a key code, evValue2 is the down flag
-	SE_CHAR,		// evValue is an ascii char
-	SE_MOUSE,		// evValue and evValue2 are relative signed x / y moves
+	SE_KEY,				// evValue is a key code, evValue2 is the down flag
+	SE_CHAR,			// evValue is an ascii char
+	SE_MOUSE,			// evValue and evValue2 are relative signed x / y moves
+	SE_GYRO,			// evValue_f and evVaule2_f are relative signed x / y movements
 	SE_JOYSTICK_AXIS,	// evValue is an axis number and evValue2 is the current state (-127 to 127)
-	SE_CONSOLE		// evPtr is a char*
+	SE_CONSOLE			// evPtr is a char*
 } sysEventType_t;
 
 typedef struct {
 	int				evTime;
 	sysEventType_t	evType;
 	int				evValue, evValue2;
+	float			evValue_f, evValue2_f;
 	int				evPtrLength;	// bytes of data pointed to by evPtr, for journaling
 	void			*evPtr;			// this must be manually freed if not NULL
 } sysEvent_t;
 
-void		Com_QueueEvent( int time, sysEventType_t type, int value, int value2, int ptrLength, void *ptr );
+void		Com_QueueEvent( int time, sysEventType_t type, int value, int value2, float value_f, float value2_f, int ptrLength, void *ptr );
 int			Com_EventLoop( void );
 sysEvent_t	Com_GetSystemEvent( void );
 
@@ -994,6 +996,8 @@ void CL_CharEvent( int key );
 // char events are for field typing, not game control
 
 void CL_MouseEvent( int dx, int dy, int time );
+
+void CL_GyroEvent( float dx, float dy, int time );
 
 void CL_JoystickEvent( int axis, int value, int time );
 

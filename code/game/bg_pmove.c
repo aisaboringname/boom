@@ -928,8 +928,6 @@ static void PM_Overbounce( void ) {
 
 	pm->ps->pm_flags |= PMF_OVERBOUNCE;
 
-	
-
 	// record speed before clipping
 	vel = VectorLength(pml.previous_velocity);
 

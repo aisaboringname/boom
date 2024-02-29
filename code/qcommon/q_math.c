@@ -527,12 +527,88 @@ float Q_fabs( float f ) {
 
 /*
 ===============
+LerpValue
+
+===============
+*/
+float LerpValue (float from, float to, float frac, qboolean clamp) {
+	float	value;
+
+	value = from + frac * (to - from);
+
+	if ( !clamp ) {
+		return value;
+	}
+	return Com_Clamp( from, to, value );
+}
+
+/*
+===============
+InvLerpValue
+
+===============
+*/
+float InvLerpValue (float from, float to, float value) {
+	float	frac;
+
+	frac = (value - from) / (to - from);
+
+	return frac;
+}
+
+/*
+===============
+LerpVector
+
+===============
+*/
+void LerpVector (vec3_t from, vec3_t to, float frac, vec3_t out, qboolean clamp) {
+	out[0] = from[0] + frac * (to[0] - from[0]);
+	out[1] = from[1] + frac * (to[1] - from[1]);
+	out[2] = from[2] + frac * (to[2] - from[2]);
+	if ( clamp ){
+		out[0] = Com_Clamp( from[0], to[0], out[0] );
+		out[1] = Com_Clamp( from[1], to[1], out[1] );
+		out[2] = Com_Clamp( from[2], to[2], out[2] );
+	}
+}
+
+/*
+===============
+SlerpVector
+
+===============
+*/
+void SlerpVector (vec3_t from, vec3_t to, float frac, float angle, vec3_t out) {
+	out[0] = from[0] * (sin((1 - frac) * angle)/sin(angle)) + to[0] * (sin(frac * angle)/sin(angle));
+	out[1] = from[1] * (sin((1 - frac) * angle)/sin(angle)) + to[1] * (sin(frac * angle)/sin(angle));
+	out[2] = from[2] * (sin((1 - frac) * angle)/sin(angle)) + to[2] * (sin(frac * angle)/sin(angle));
+}
+
+/*
+===============
+NlerpVector
+
+===============
+*/
+void NlerpVector (vec3_t from, vec3_t to, float frac, vec3_t out, qboolean fast, qboolean clamp) {
+	LerpVector(from, to, frac, out, clamp);
+
+	if ( fast ) {
+		VectorNormalizeFast( out );
+	} else {
+		VectorNormalize( out );
+	}
+}
+
+/*
+===============
 LerpAngle
 
 ===============
 */
 float LerpAngle (float from, float to, float frac) {
-	float	a;
+	float	value;
 
 	if ( to - from > 180 ) {
 		to -= 360;
@@ -540,11 +616,39 @@ float LerpAngle (float from, float to, float frac) {
 	if ( to - from < -180 ) {
 		to += 360;
 	}
-	a = from + frac * (to - from);
+	value = from + frac * (to - from);
 
-	return a;
+	return value;
 }
 
+/*
+===============
+RemapValue
+
+===============
+*/
+float RemapValue (float input_from, float input_to, float output_from, float output_to, float value, qboolean clamp) {
+	float	frac, remap;
+
+	frac = InvLerpValue( input_from, input_to, value );
+	remap = LerpValue( output_from, output_to, frac, clamp );
+	
+	return remap;
+}
+
+/*
+===============
+SmoothStep
+
+===============
+*/
+float SmoothStep (float from, float to, float frac) {
+	float	smooth;
+
+	smooth = LerpValue( from, to, -2 * frac * frac * frac + 3 * frac * frac, qtrue );
+
+	return smooth;
+}
 
 /*
 =================
@@ -801,6 +905,39 @@ vec_t VectorNormalize( vec3_t v ) {
 	return length;
 }
 
+//TODO: do this better
+mvec_t MultivectorNormalize( mvec4_t *mv ) {
+	// NOTE: TTimo - Apple G4 altivec source uses double?
+	float	length, ilength;
+
+	length = MultivectorLengthSquared( mv );
+
+	if ( length ) {
+		/* writing it this way allows gcc to recognize that rsqrt can be used */
+		ilength = 1/(float)sqrt (length);
+		/* sqrt(length) = length * (1 / sqrt(length)) */
+		length *= ilength;
+		(*mv[0]) *= ilength;
+		(*mv[1]) *= ilength;
+		(*mv[2]) *= ilength;
+		(*mv[3]) *= ilength;
+		(*mv[4]) *= ilength;
+		(*mv[5]) *= ilength;
+		(*mv[6]) *= ilength;
+		(*mv[7]) *= ilength;
+		(*mv[8]) *= ilength;
+		(*mv[9]) *= ilength;
+		(*mv[10]) *= ilength;
+		(*mv[11]) *= ilength;
+		(*mv[12]) *= ilength;
+		(*mv[13]) *= ilength;
+		(*mv[14]) *= ilength;
+		(*mv[15]) *= ilength;
+	}
+		
+	return length;
+}
+
 vec_t VectorNormalize2( const vec3_t v, vec3_t out) {
 	float	length, ilength;
 
@@ -852,11 +989,89 @@ void _VectorCopy( const vec3_t in, vec3_t out ) {
 	out[2] = in[2];
 }
 
-void _VectorScale( const vec3_t in, vec_t scale, vec3_t out ) {
+void _VectorScale( const vec3_t in, float scale, vec3_t out ) {
 	out[0] = in[0]*scale;
 	out[1] = in[1]*scale;
 	out[2] = in[2]*scale;
 }
+
+
+void _MultivectorSubtract( mvec4_t *mveca, mvec4_t *mvecb, mvec4_t *out ) {
+	(*out[0]) = (*mveca[0]) - (*mvecb[0]);
+	(*out[1]) = (*mveca[1]) - (*mvecb[1]);
+	(*out[2]) = (*mveca[2]) - (*mvecb[2]);
+	(*out[3]) = (*mveca[3]) - (*mvecb[3]);
+	(*out[4]) = (*mveca[4]) - (*mvecb[4]);
+	(*out[5]) = (*mveca[5]) - (*mvecb[5]);
+	(*out[6]) = (*mveca[6]) - (*mvecb[6]);
+	(*out[7]) = (*mveca[7]) - (*mvecb[7]);
+	(*out[8]) = (*mveca[8]) - (*mvecb[8]);
+	(*out[9]) = (*mveca[9]) - (*mvecb[9]);
+	(*out[10]) = (*mveca[10]) - (*mvecb[10]);
+	(*out[11]) = (*mveca[11]) - (*mvecb[11]);
+	(*out[12]) = (*mveca[12]) - (*mvecb[12]);
+	(*out[13]) = (*mveca[13]) - (*mvecb[13]);
+	(*out[14]) = (*mveca[14]) - (*mvecb[14]);
+	(*out[15]) = (*mveca[15]) - (*mvecb[15]);
+}
+
+void _MultivectorAdd( mvec4_t *mveca, mvec4_t *mvecb, mvec4_t *out ) {
+	(*out[0]) = (*mveca[0]) + (*mvecb[0]);
+	(*out[1]) = (*mveca[1]) + (*mvecb[1]);
+	(*out[2]) = (*mveca[2]) + (*mvecb[2]);
+	(*out[3]) = (*mveca[3]) + (*mvecb[3]);
+	(*out[4]) = (*mveca[4]) + (*mvecb[4]);
+	(*out[5]) = (*mveca[5]) + (*mvecb[5]);
+	(*out[6]) = (*mveca[6]) + (*mvecb[6]);
+	(*out[7]) = (*mveca[7]) + (*mvecb[7]);
+	(*out[8]) = (*mveca[8]) + (*mvecb[8]);
+	(*out[9]) = (*mveca[9]) + (*mvecb[9]);
+	(*out[10]) = (*mveca[10]) + (*mvecb[10]);
+	(*out[11]) = (*mveca[11]) + (*mvecb[11]);
+	(*out[12]) = (*mveca[12]) + (*mvecb[12]);
+	(*out[13]) = (*mveca[13]) + (*mvecb[13]);
+	(*out[14]) = (*mveca[14]) + (*mvecb[14]);
+	(*out[15]) = (*mveca[15]) + (*mvecb[15]);
+}
+
+void _MultivectorCopy( mvec4_t *in, mvec4_t *out ) {
+	(*out[0]) = (*in[0]);
+	(*out[1]) = (*in[1]);
+	(*out[2]) = (*in[2]);
+	(*out[3]) = (*in[3]);
+	(*out[4]) = (*in[4]);
+	(*out[5]) = (*in[5]);
+	(*out[6]) = (*in[6]);
+	(*out[7]) = (*in[7]);
+	(*out[8]) = (*in[8]);
+	(*out[9]) = (*in[9]);
+	(*out[10]) = (*in[10]);
+	(*out[11]) = (*in[11]);
+	(*out[12]) = (*in[12]);
+	(*out[13]) = (*in[13]);
+	(*out[14]) = (*in[14]);
+	(*out[15]) = (*in[15]);
+}
+
+void _MultivectorScale( mvec4_t *in, float scale, mvec4_t *out ) {
+	(*out[0]) = (*in[0]) * scale;
+	(*out[1]) = (*in[1]) * scale;
+	(*out[2]) = (*in[2]) * scale;
+	(*out[3]) = (*in[3]) * scale;
+	(*out[4]) = (*in[4]) * scale;
+	(*out[5]) = (*in[5]) * scale;
+	(*out[6]) = (*in[6]) * scale;
+	(*out[7]) = (*in[7]) * scale;
+	(*out[8]) = (*in[8]) * scale;
+	(*out[9]) = (*in[9]) * scale;
+	(*out[10]) = (*in[10]) * scale;
+	(*out[11]) = (*in[11]) * scale;
+	(*out[12]) = (*in[12]) * scale;
+	(*out[13]) = (*in[13]) * scale;
+	(*out[14]) = (*in[14]) * scale;
+	(*out[15]) = (*in[15]) * scale;
+}
+
 
 void Vector4Scale( const vec4_t in, vec_t scale, vec4_t out ) {
 	out[0] = in[0]*scale;

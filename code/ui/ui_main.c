@@ -152,6 +152,7 @@ void _UI_Init( qboolean );
 void _UI_Shutdown( void );
 void _UI_KeyEvent( int key, qboolean down );
 void _UI_MouseEvent( int dx, int dy );
+void _UI_GyroEvent( float dx, float dy );
 void _UI_Refresh( int realtime );
 qboolean _UI_IsFullscreen( void );
 Q_EXPORT intptr_t vmMain( int command, int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6, int arg7, int arg8, int arg9, int arg10, int arg11  ) {
@@ -173,6 +174,11 @@ Q_EXPORT intptr_t vmMain( int command, int arg0, int arg1, int arg2, int arg3, i
 
 	  case UI_MOUSE_EVENT:
 		  _UI_MouseEvent( arg0, arg1 );
+		  return 0;
+
+	  case UI_GYRO_EVENT:
+		  // evil floating point bit level hacking 2: electric boogaloo reversal
+		  _UI_GyroEvent( * ( float * ) &arg0, * ( float * ) &arg1 );
 		  return 0;
 
 	  case UI_REFRESH:
@@ -5252,6 +5258,39 @@ UI_MouseEvent
 =================
 */
 void _UI_MouseEvent( int dx, int dy )
+{
+	int bias;
+
+	// convert X bias to 640 coords
+	bias = uiInfo.uiDC.bias / uiInfo.uiDC.xscale;
+
+	// update mouse screen position
+	uiInfo.uiDC.cursorx += dx;
+	if (uiInfo.uiDC.cursorx < -bias)
+		uiInfo.uiDC.cursorx = -bias;
+	else if (uiInfo.uiDC.cursorx > SCREEN_WIDTH+bias)
+		uiInfo.uiDC.cursorx = SCREEN_WIDTH+bias;
+
+	uiInfo.uiDC.cursory += dy;
+	if (uiInfo.uiDC.cursory < 0)
+		uiInfo.uiDC.cursory = 0;
+	else if (uiInfo.uiDC.cursory > SCREEN_HEIGHT)
+		uiInfo.uiDC.cursory = SCREEN_HEIGHT;
+
+  if (Menu_Count() > 0) {
+    //menuDef_t *menu = Menu_GetFocused();
+    //Menu_HandleMouseMove(menu, uiInfo.uiDC.cursorx, uiInfo.uiDC.cursory);
+		Display_MouseMove(NULL, uiInfo.uiDC.cursorx, uiInfo.uiDC.cursory);
+  }
+
+}
+
+/*
+=================
+UI_GyroEvent
+=================
+*/
+void _UI_GyroEvent( float dx, float dy )
 {
 	int bias;
 

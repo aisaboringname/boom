@@ -422,6 +422,7 @@ int UI_SelectForKey(int key);
 displayContextDef_t *Display_GetContext( void );
 void *Display_CaptureItem(int x, int y);
 qboolean Display_MouseMove(void *p, int x, int y);
+qboolean Display_GyroMove(void *p, float x, float y);
 int Display_CursorType(int x, int y);
 qboolean Display_KeyBindPending( void );
 void Menus_OpenByName(const char *p);

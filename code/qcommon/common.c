@@ -1957,7 +1957,7 @@ Ptr should either be null, or point to a block of data that can
 be freed by the game later.
 ================
 */
-void Com_QueueEvent( int time, sysEventType_t type, int value, int value2, int ptrLength, void *ptr )
+void Com_QueueEvent( int time, sysEventType_t type, int value, int value2, float value_f, float value2_f, int ptrLength, void *ptr )
 {
 	sysEvent_t  *ev;
 
@@ -1970,6 +1970,19 @@ void Com_QueueEvent( int time, sysEventType_t type, int value, int value2, int p
 		{
 			ev->evValue += value;
 			ev->evValue2 += value2;
+			return;
+		}
+	}
+
+	// combine gyro movement with previous gyro event
+	if ( type == SE_GYRO && eventHead != eventTail )
+	{
+		ev = &eventQueue[ ( eventHead + MAX_QUEUED_EVENTS - 1 ) & MASK_QUEUED_EVENTS ];
+
+		if ( ev->evType == SE_GYRO )
+		{
+			ev->evValue_f += value_f;
+			ev->evValue2_f += value2_f;
 			return;
 		}
 	}
@@ -1998,6 +2011,8 @@ void Com_QueueEvent( int time, sysEventType_t type, int value, int value2, int p
 	ev->evType = type;
 	ev->evValue = value;
 	ev->evValue2 = value2;
+	ev->evValue_f = value_f;
+	ev->evValue2_f = value2_f;
 	ev->evPtrLength = ptrLength;
 	ev->evPtr = ptr;
 }
@@ -2030,7 +2045,7 @@ sysEvent_t Com_GetSystemEvent( void )
 		len = strlen( s ) + 1;
 		b = Z_Malloc( len );
 		strcpy( b, s );
-		Com_QueueEvent( 0, SE_CONSOLE, 0, 0, len, b );
+		Com_QueueEvent( 0, SE_CONSOLE, 0, 0, 0, 0, len, b );
 	}
 
 	// return if we have data
@@ -2222,6 +2237,9 @@ int Com_EventLoop( void ) {
 			break;
 			case SE_MOUSE:
 				CL_MouseEvent( ev.evValue, ev.evValue2, ev.evTime );
+			break;
+			case SE_GYRO:
+				CL_GyroEvent( ev.evValue_f, ev.evValue2_f, ev.evTime );
 			break;
 			case SE_JOYSTICK_AXIS:
 				CL_JoystickEvent( ev.evValue, ev.evValue2, ev.evTime );

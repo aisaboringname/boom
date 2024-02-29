@@ -58,6 +58,30 @@ static int vidRestartTime = 0;
 
 static int in_eventTime = 0;
 
+// gyro
+// -----------------------------
+
+// Gyro calibration
+static float gyro_accum[3];
+static cvar_t *gyro_calibration_x;
+static cvar_t *gyro_calibration_y;
+static cvar_t *gyro_calibration_z;
+
+#if SDL_VERSION_ATLEAST(2, 0, 14)	// support for controller sensors (gyro, accelerometer)
+
+static unsigned int num_samples;
+#define NATIVE_SDL_GYRO				// uses SDL_CONTROLLERSENSORUPDATE to read gyro
+
+#else								// for SDL < 2.0.14, gyro can be read as a "secondary joystick" exposed by dkms-hid-nintendo
+
+static unsigned int num_samples[3];
+static SDL_Joystick *imu_stick = NULL;	// gyro "joystick"
+#define IMU_JOY_AXIS_GYRO_ROLL 3
+#define IMU_JOY_AXIS_GYRO_PITCH 4
+#define IMU_JOY_AXIS_GYRO_YAW 5
+
+#endif
+
 static SDL_Window *SDL_window = NULL;
 
 #define CTRL(a) ((a)-'a'+1)
@@ -472,8 +496,15 @@ static void IN_InitJoystick( void )
 	// SDL_INIT_GAMECONTROLLER for SDL_JoystickOpen() to work correctly,
 	// despite https://wiki.libsdl.org/SDL_Init (retrieved 2016-08-16)
 	// indicating SDL_INIT_JOYSTICK should be initialized automatically.
-	if (!SDL_WasInit(SDL_INIT_JOYSTICK))
-	{
+	if (!SDL_WasInit(SDL_INIT_GAMECONTROLLER)) {
+		Com_DPrintf("Calling SDL_Init(SDL_INIT_GAMECONTROLLER)...\n");
+		if (SDL_Init(SDL_INIT_GAMECONTROLLER) != 0)
+		{
+			Com_DPrintf("SDL_Init(SDL_INIT_GAMECONTROLLER) failed: %s\n", SDL_GetError());
+			return;
+		}
+		Com_DPrintf("SDL_Init(SDL_INIT_GAMECONTROLLER) passed.\n");
+	} else if (!SDL_WasInit(SDL_INIT_JOYSTICK)) {
 		Com_DPrintf("Calling SDL_Init(SDL_INIT_JOYSTICK)...\n");
 		if (SDL_Init(SDL_INIT_JOYSTICK) != 0)
 		{
@@ -483,23 +514,11 @@ static void IN_InitJoystick( void )
 		Com_DPrintf("SDL_Init(SDL_INIT_JOYSTICK) passed.\n");
 	}
 
-	if (!SDL_WasInit(SDL_INIT_GAMECONTROLLER))
-	{
-		Com_DPrintf("Calling SDL_Init(SDL_INIT_GAMECONTROLLER)...\n");
-		if (SDL_Init(SDL_INIT_GAMECONTROLLER) != 0)
-		{
-			Com_DPrintf("SDL_Init(SDL_INIT_GAMECONTROLLER) failed: %s\n", SDL_GetError());
-			return;
-		}
-		Com_DPrintf("SDL_Init(SDL_INIT_GAMECONTROLLER) passed.\n");
-	}
-
 	total = SDL_NumJoysticks();
 	Com_DPrintf("%d possible joysticks\n", total);
 
 	// Print list and build cvar to allow ui to select joystick.
-	for (i = 0; i < total; i++)
-	{
+	for (i = 0; i < total; i++) {
 		Q_strcat(buf, sizeof(buf), SDL_JoystickNameForIndex(i));
 		Q_strcat(buf, sizeof(buf), "\n");
 	}
@@ -530,6 +549,40 @@ static void IN_InitJoystick( void )
 
 	if (SDL_IsGameController(in_joystickNo->integer))
 		gamepad = SDL_GameControllerOpen(in_joystickNo->integer);
+
+#ifdef NATIVE_SDL_GYRO
+
+	if ( SDL_GameControllerHasSensor(gamepad, SDL_SENSOR_GYRO)
+		&& !SDL_GameControllerSetSensorEnabled(gamepad, SDL_SENSOR_GYRO, SDL_TRUE) ) {
+		// show_gyro = qtrue;
+#if SDL_VERSION_ATLEAST(2, 0, 16)
+		Com_Printf( "Gyro sensor enabled at %.2f Hz\n",
+			SDL_GameControllerGetSensorDataRate(gamepad, SDL_SENSOR_GYRO) );
+#else
+		Com_Printf( "Gyro sensor enabled.\n" );
+#endif	// #if SDL_VERSION_ATLEAST(2, 0, 16)
+	} else {
+		Com_Printf("Gyro sensor not found.\n");
+	}
+
+	if ( SDL_GameControllerHasSensor(gamepad, SDL_SENSOR_ACCEL)
+		&& !SDL_GameControllerSetSensorEnabled(gamepad, SDL_SENSOR_ACCEL, SDL_TRUE) ) {
+		// show_gyro = qtrue;
+#if SDL_VERSION_ATLEAST(2, 0, 16)
+		Com_Printf( "Accel sensor enabled at %.2f Hz\n",
+			SDL_GameControllerGetSensorDataRate(gamepad, SDL_SENSOR_ACCEL) );
+#else
+		Com_Printf( "Accel sensor enabled.\n" );
+#endif	// #if SDL_VERSION_ATLEAST(2, 0, 16)
+	} else {
+		Com_Printf("Accel sensor not found.\n");
+	}
+
+	if ( SDL_GameControllerHasLED(gamepad) ) {
+		SDL_GameControllerSetLED(gamepad, 0, 80, 0);	// green light
+	}
+
+#endif	// NATIVE_SDL_GYRO
 
 	Com_DPrintf( "Joystick %d opened\n", in_joystickNo->integer );
 	Com_DPrintf( "Name:       %s\n", SDL_JoystickNameForIndex(in_joystickNo->integer) );
@@ -666,12 +719,12 @@ static void IN_JoyMove( void )
 	total = SDL_JoystickNumBalls(stick);
 	if (total > 0)
 	{
-		int balldx = 0;
-		int balldy = 0;
+		float balldx = 0;
+		float balldy = 0;
 		for (i = 0; i < total; i++)
 		{
-			int dx = 0;
-			int dy = 0;
+			float dx = 0;
+			float dy = 0;
 			SDL_JoystickGetBall(stick, i, &dx, &dy);
 			balldx += dx;
 			balldy += dy;
@@ -684,7 +737,7 @@ static void IN_JoyMove( void )
 				balldx *= 2;
 			if (abs(balldy) > 1)
 				balldy *= 2;
-			Com_QueueEvent( in_eventTime, SE_MOUSE, balldx, balldy, 0, NULL );
+			Com_QueueEvent( in_eventTime, SE_MOUSE, balldx, balldy, 0, 0, 0, NULL );
 		}
 	}
 
@@ -699,7 +752,7 @@ static void IN_JoyMove( void )
 			qboolean pressed = (SDL_JoystickGetButton(stick, i) != 0);
 			if (pressed != stick_state.buttons[i])
 			{
-				Com_QueueEvent( in_eventTime, SE_KEY, K_JOY1 + i, pressed, 0, NULL );
+				Com_QueueEvent( in_eventTime, SE_KEY, K_JOY1 + i, pressed, 0, 0, 0, NULL );
 				stick_state.buttons[i] = pressed;
 			}
 		}
@@ -724,32 +777,32 @@ static void IN_JoyMove( void )
 				// release event
 				switch( ((Uint8 *)&stick_state.oldhats)[i] ) {
 					case SDL_HAT_UP:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 0], qfalse, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 0], qfalse, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_RIGHT:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 1], qfalse, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 1], qfalse, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_DOWN:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 2], qfalse, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 2], qfalse, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_LEFT:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 3], qfalse, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 3], qfalse, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_RIGHTUP:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 0], qfalse, 0, NULL );
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 1], qfalse, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 0], qfalse, 0, 0, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 1], qfalse, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_RIGHTDOWN:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 2], qfalse, 0, NULL );
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 1], qfalse, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 2], qfalse, 0, 0, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 1], qfalse, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_LEFTUP:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 0], qfalse, 0, NULL );
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 3], qfalse, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 0], qfalse, 0, 0, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 3], qfalse, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_LEFTDOWN:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 2], qfalse, 0, NULL );
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 3], qfalse, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 2], qfalse, 0, 0, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 3], qfalse, 0, 0, 0, NULL );
 						break;
 					default:
 						break;
@@ -757,32 +810,32 @@ static void IN_JoyMove( void )
 				// press event
 				switch( ((Uint8 *)&hats)[i] ) {
 					case SDL_HAT_UP:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 0], qtrue, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 0], qtrue, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_RIGHT:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 1], qtrue, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 1], qtrue, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_DOWN:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 2], qtrue, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 2], qtrue, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_LEFT:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 3], qtrue, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 3], qtrue, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_RIGHTUP:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 0], qtrue, 0, NULL );
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 1], qtrue, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 0], qtrue, 0, 0, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 1], qtrue, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_RIGHTDOWN:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 2], qtrue, 0, NULL );
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 1], qtrue, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 2], qtrue, 0, 0, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 1], qtrue, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_LEFTUP:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 0], qtrue, 0, NULL );
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 3], qtrue, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 0], qtrue, 0, 0, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 3], qtrue, 0, 0, 0, NULL );
 						break;
 					case SDL_HAT_LEFTDOWN:
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 2], qtrue, 0, NULL );
-						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 3], qtrue, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 2], qtrue, 0, 0, 0, NULL );
+						Com_QueueEvent( in_eventTime, SE_KEY, hat_keys[4*i + 3], qtrue, 0, 0, 0, NULL );
 						break;
 					default:
 						break;
@@ -810,7 +863,7 @@ static void IN_JoyMove( void )
 
 				if ( axis != stick_state.oldaaxes[i] )
 				{
-					Com_QueueEvent( in_eventTime, SE_JOYSTICK_AXIS, i, axis, 0, NULL );
+					Com_QueueEvent( in_eventTime, SE_JOYSTICK_AXIS, i, axis, 0, 0, 0, NULL );
 					stick_state.oldaaxes[i] = axis;
 				}
 			}
@@ -836,11 +889,11 @@ static void IN_JoyMove( void )
 	{
 		for( i = 0; i < 16; i++ ) {
 			if( ( axes & ( 1 << i ) ) && !( stick_state.oldaxes & ( 1 << i ) ) ) {
-				Com_QueueEvent( in_eventTime, SE_KEY, joy_keys[i], qtrue, 0, NULL );
+				Com_QueueEvent( in_eventTime, SE_KEY, joy_keys[i], qtrue, 0, 0, 0, NULL );
 			}
 
 			if( !( axes & ( 1 << i ) ) && ( stick_state.oldaxes & ( 1 << i ) ) ) {
-				Com_QueueEvent( in_eventTime, SE_KEY, joy_keys[i], qfalse, 0, NULL );
+				Com_QueueEvent( in_eventTime, SE_KEY, joy_keys[i], qfalse, 0, 0, 0, NULL );
 			}
 		}
 	}
@@ -848,6 +901,20 @@ static void IN_JoyMove( void )
 	/* Save for future generations. */
 	stick_state.oldaxes = axes;
 }
+
+/*
+===============
+IN_CalcGravity
+===============
+*/
+/* vec3_t IN_CalcGravity( vec3_t gyro, vec3_t accel ) {
+	float	shake;
+	vec3_t	smooth_accel, gravity;
+	quat_t	reverse_rotation;
+
+	reverse_rotation = AnglesToAxis( VectorLength( gyro ), -gyro );
+
+} */
 
 /*
 ===============
@@ -872,19 +939,19 @@ static void IN_ProcessEvents( void )
 					break;
 
 				if( ( key = IN_TranslateSDLToQ3Key( &e.key.keysym, qtrue ) ) )
-					Com_QueueEvent( in_eventTime, SE_KEY, key, qtrue, 0, NULL );
+					Com_QueueEvent( in_eventTime, SE_KEY, key, qtrue, 0, 0, 0, NULL );
 
 				if( key == K_BACKSPACE )
-					Com_QueueEvent( in_eventTime, SE_CHAR, CTRL('h'), 0, 0, NULL );
+					Com_QueueEvent( in_eventTime, SE_CHAR, CTRL('h'), 0, 0, 0, 0, NULL );
 				else if( keys[K_CTRL].down && key >= 'a' && key <= 'z' )
-					Com_QueueEvent( in_eventTime, SE_CHAR, CTRL(key), 0, 0, NULL );
+					Com_QueueEvent( in_eventTime, SE_CHAR, CTRL(key), 0, 0, 0, 0, NULL );
 
 				lastKeyDown = key;
 				break;
 
 			case SDL_KEYUP:
 				if( ( key = IN_TranslateSDLToQ3Key( &e.key.keysym, qfalse ) ) )
-					Com_QueueEvent( in_eventTime, SE_KEY, key, qfalse, 0, NULL );
+					Com_QueueEvent( in_eventTime, SE_KEY, key, qfalse, 0, 0, 0, NULL );
 
 				lastKeyDown = 0;
 				break;
@@ -929,11 +996,11 @@ static void IN_ProcessEvents( void )
 						{
 							if( IN_IsConsoleKey( 0, utf32 ) )
 							{
-								Com_QueueEvent( in_eventTime, SE_KEY, K_CONSOLE, qtrue, 0, NULL );
-								Com_QueueEvent( in_eventTime, SE_KEY, K_CONSOLE, qfalse, 0, NULL );
+								Com_QueueEvent( in_eventTime, SE_KEY, K_CONSOLE, qtrue, 0, 0, 0, NULL );
+								Com_QueueEvent( in_eventTime, SE_KEY, K_CONSOLE, qfalse, 0, 0, 0, NULL );
 							}
 							else
-								Com_QueueEvent( in_eventTime, SE_CHAR, utf32, 0, 0, NULL );
+								Com_QueueEvent( in_eventTime, SE_CHAR, utf32, 0, 0, 0, 0, NULL );
 						}
 					}
 				}
@@ -944,7 +1011,9 @@ static void IN_ProcessEvents( void )
 				{
 					if( !e.motion.xrel && !e.motion.yrel )
 						break;
-					Com_QueueEvent( in_eventTime, SE_MOUSE, e.motion.xrel, e.motion.yrel, 0, NULL );
+
+					
+					Com_QueueEvent( in_eventTime, SE_MOUSE, e.motion.xrel, e.motion.yrel, 0, 0, 0, NULL );
 				}
 				break;
 
@@ -962,20 +1031,20 @@ static void IN_ProcessEvents( void )
 						default:                b = K_AUX1 + ( e.button.button - SDL_BUTTON_X2 + 1 ) % 16; break;
 					}
 					Com_QueueEvent( in_eventTime, SE_KEY, b,
-						( e.type == SDL_MOUSEBUTTONDOWN ? qtrue : qfalse ), 0, NULL );
+						( e.type == SDL_MOUSEBUTTONDOWN ? qtrue : qfalse ), 0, 0, 0, NULL );
 				}
 				break;
 
 			case SDL_MOUSEWHEEL:
 				if( e.wheel.y > 0 )
 				{
-					Com_QueueEvent( in_eventTime, SE_KEY, K_MWHEELUP, qtrue, 0, NULL );
-					Com_QueueEvent( in_eventTime, SE_KEY, K_MWHEELUP, qfalse, 0, NULL );
+					Com_QueueEvent( in_eventTime, SE_KEY, K_MWHEELUP, qtrue, 0, 0, 0, NULL );
+					Com_QueueEvent( in_eventTime, SE_KEY, K_MWHEELUP, qfalse, 0, 0, 0, NULL );
 				}
 				else if( e.wheel.y < 0 )
 				{
-					Com_QueueEvent( in_eventTime, SE_KEY, K_MWHEELDOWN, qtrue, 0, NULL );
-					Com_QueueEvent( in_eventTime, SE_KEY, K_MWHEELDOWN, qfalse, 0, NULL );
+					Com_QueueEvent( in_eventTime, SE_KEY, K_MWHEELDOWN, qtrue, 0, 0, 0, NULL );
+					Com_QueueEvent( in_eventTime, SE_KEY, K_MWHEELDOWN, qfalse, 0, 0, 0, NULL );
 				}
 				break;
 
@@ -1050,19 +1119,19 @@ static void IN_ProcessEvents( void )
 
 					// positive to negative/neutral -> keyup
 					if (!posAnalog && posKey && oldAxis > 0 && axis <= 0)
-						Com_QueueEvent(in_eventTime, SE_KEY, posKey, qfalse, 0, NULL);
+						Com_QueueEvent(in_eventTime, SE_KEY, posKey, qfalse, 0, 0, 0, NULL);
 
 					// negative to positive/neutral -> keyup
 					if (!negAnalog && negKey && oldAxis < 0 && axis >= 0)
-						Com_QueueEvent(in_eventTime, SE_KEY, negKey, qfalse, 0, NULL);
+						Com_QueueEvent(in_eventTime, SE_KEY, negKey, qfalse, 0, 0, 0, NULL);
 
 					// negative/neutral to positive -> keydown
 					if (!posAnalog && posKey && oldAxis <= 0 && axis > 0)
-						Com_QueueEvent(in_eventTime, SE_KEY, posKey, qtrue, 0, NULL);
+						Com_QueueEvent(in_eventTime, SE_KEY, posKey, qtrue, 0, 0, 0, NULL);
 
 					// positive/neutral to negative -> keydown
 					if (!negAnalog && negKey && oldAxis >= 0 && axis < 0)
-						Com_QueueEvent(in_eventTime, SE_KEY, negKey, qtrue, 0, NULL);
+						Com_QueueEvent(in_eventTime, SE_KEY, negKey, qtrue, 0, 0, 0, NULL);
 
 					stick_state.oldaaxes[e.caxis.axis] = axis;
 				}
@@ -1070,7 +1139,7 @@ static void IN_ProcessEvents( void )
 				// set translated axes
 				if (in_joystickUseAnalog->integer)
 					if (translatedAxesSet[e.caxis.axis])
-						Com_QueueEvent(in_eventTime, SE_JOYSTICK_AXIS, e.caxis.axis, translatedAxes[e.caxis.axis], 0, NULL);
+						Com_QueueEvent(in_eventTime, SE_JOYSTICK_AXIS, e.caxis.axis, translatedAxes[e.caxis.axis], 0, 0, 0, NULL);
 
 				break;
 
@@ -1079,10 +1148,36 @@ static void IN_ProcessEvents( void )
 				qboolean pressed = (e.type == SDL_CONTROLLERBUTTONDOWN);
 				if (pressed != stick_state.buttons[e.button.button])
 				{
-					Com_QueueEvent(in_eventTime, SE_KEY, K_PAD0_A + e.button.button, pressed, 0, NULL);
+					Com_QueueEvent(in_eventTime, SE_KEY, K_PAD0_A + e.button.button, pressed, 0, 0, 0, NULL);
 					stick_state.buttons[e.button.button] = pressed;
 				}
 				break;
+
+#ifdef NATIVE_SDL_GYRO
+			case SDL_CONTROLLERSENSORUPDATE:
+				if ( e.csensor.sensor != SDL_SENSOR_GYRO && e.csensor.sensor != SDL_SENSOR_ACCEL ) {
+					break;
+				}
+
+				vec3_t	gyro_data, accel_data;
+				int		camera[2];
+
+				if ( e.csensor.sensor == SDL_SENSOR_GYRO ) {
+					VectorSet( gyro_data, e.csensor.data[0], e.csensor.data[1], e.csensor.data[2]);
+				} else if ( e.csensor.sensor == SDL_SENSOR_ACCEL ) {
+					VectorSet( accel_data, e.csensor.data[0], e.csensor.data[1], e.csensor.data[2]);
+				}
+
+				camera[0] = gyro_data[0];
+				camera[1] = gyro_data[1];
+				
+				Com_Printf("accel_data[0]: %f\naccel_data[1]: %f\naccel_data[2]: %f\n", accel_data[0], accel_data[1], accel_data[2]);
+
+				Com_Printf("gyro_data[0]: %f\ngyro_data[1]: %f\n", gyro_data[0], gyro_data[1]);
+
+				Com_QueueEvent( in_eventTime, SE_GYRO, 0, 0, -camera[1], -camera[0], 0, NULL );	// TODO: add sens slider
+				break;
+#endif
 
 			case SDL_QUIT:
 				Cbuf_ExecuteText(EXEC_NOW, "quit Closed window\n");

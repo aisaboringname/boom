@@ -381,6 +381,26 @@ void CL_MouseEvent( int dx, int dy, int time ) {
 
 /*
 =================
+CL_GyroEvent
+=================
+*/
+void CL_GyroEvent( float dx, float dy, int time ) {
+	if ( Key_GetCatcher( ) & KEYCATCH_UI ) {
+		// evil floating point bit level hacking 2: electric boogaloo
+		Com_Printf("dx: %f\ndx (int): %d\ndy: %f\ndy (int): %d\n", dx, * ( int * ) &dx, dy, * ( int * ) &dy);
+		VM_Call( uivm, UI_GYRO_EVENT, * ( int * ) &dx, * ( int * ) &dy );
+	} else if (Key_GetCatcher( ) & KEYCATCH_CGAME) {
+		// evil floating point bit level hacking 2: electric boogaloo
+		Com_Printf("dx: %f\ndx (int): %d\ndy: %f\ndy (int): %d\n", dx, * ( int * ) &dx, dy, * ( int * ) &dy);
+		VM_Call (cgvm, CG_GYRO_EVENT, * ( int * ) &dx, * ( int * ) &dy );
+	} else {
+		cl.gyroDx[cl.mouseIndex] += dx;
+		cl.gyroDy[cl.mouseIndex] += dy;
+	}
+}
+
+/*
+=================
 CL_JoystickEvent
 
 Joystick values stay set until changed
@@ -525,6 +545,97 @@ void CL_MouseMove(usercmd_t *cmd)
 		cmd->forwardmove = ClampChar(cmd->forwardmove - m_forward->value * my);
 }
 
+/*
+=================
+CL_GyroMove
+=================
+*/
+
+void CL_GyroMove(usercmd_t *cmd)
+{
+	float mx, my;
+
+	// allow mouse smoothing
+	if (m_filter->integer)
+	{
+		mx = (cl.gyroDx[0] + cl.gyroDx[1]) * 0.5f;
+		my = (cl.gyroDy[0] + cl.gyroDy[1]) * 0.5f;
+	}
+	else
+	{
+		mx = cl.gyroDx[cl.mouseIndex];
+		my = cl.gyroDy[cl.mouseIndex];
+	}
+	
+	cl.mouseIndex ^= 1;
+	cl.gyroDx[cl.mouseIndex] = 0;
+	cl.gyroDy[cl.mouseIndex] = 0;
+
+	Com_Printf("frame_msec: %d\n", frame_msec);
+
+	if (mx == 0.0f && my == 0.0f)
+		return;
+	
+	if (cl_mouseAccel->value != 0.0f)
+	{
+		if(cl_mouseAccelStyle->integer == 0)
+		{
+			float accelSensitivity;
+			float rate;
+			
+			rate = sqrt(mx * mx + my * my) / (float) frame_msec;
+
+			accelSensitivity = cl_sensitivity->value + rate * cl_mouseAccel->value;
+			mx *= accelSensitivity;
+			my *= accelSensitivity;
+			
+			if(cl_showMouseRate->integer)
+				Com_Printf("rate: %f, accelSensitivity: %f\n", rate, accelSensitivity);
+		}
+		else
+		{
+			float rate[2];
+			float power[2];
+
+			// sensitivity remains pretty much unchanged at low speeds
+			// cl_mouseAccel is a power value to how the acceleration is shaped
+			// cl_mouseAccelOffset is the rate for which the acceleration will have doubled the non accelerated amplification
+			// NOTE: decouple the config cvars for independent acceleration setup along X and Y?
+
+			rate[0] = fabs(mx) / (float) frame_msec;
+			rate[1] = fabs(my) / (float) frame_msec;
+			power[0] = powf(rate[0] / cl_mouseAccelOffset->value, cl_mouseAccel->value);
+			power[1] = powf(rate[1] / cl_mouseAccelOffset->value, cl_mouseAccel->value);
+
+			mx = cl_sensitivity->value * (mx + ((mx < 0) ? -power[0] : power[0]) * cl_mouseAccelOffset->value);
+			my = cl_sensitivity->value * (my + ((my < 0) ? -power[1] : power[1]) * cl_mouseAccelOffset->value);
+
+			if(cl_showMouseRate->integer)
+				Com_Printf("ratex: %f, ratey: %f, powx: %f, powy: %f\n", rate[0], rate[1], power[0], power[1]);
+		}
+	}
+	else
+	{
+		mx *= cl_sensitivity->value;
+		my *= cl_sensitivity->value;
+	}
+
+	// ingame FOV
+	mx *= cl.cgameSensitivity;
+	my *= cl.cgameSensitivity;
+
+	// add mouse X/Y movement to cmd
+	if(in_strafe.active)
+		cmd->rightmove = ClampChar(cmd->rightmove + m_side->value * mx);
+	else
+		cl.viewangles[YAW] -= m_yaw->value * mx;
+
+	if ((in_mlooking || cl_freelook->integer) && !in_strafe.active)
+		cl.viewangles[PITCH] += m_pitch->value * my;
+	else
+		cmd->forwardmove = ClampChar(cmd->forwardmove - m_forward->value * my);
+}
+
 
 /*
 ==============
@@ -602,6 +713,9 @@ usercmd_t CL_CreateCmd( void ) {
 
 	// get basic movement from mouse
 	CL_MouseMove( &cmd );
+
+	/* // get basic movement from gyro
+	CL_GyroMove( &cmd ); */
 
 	// get basic movement from joystick
 	CL_JoystickMove( &cmd );

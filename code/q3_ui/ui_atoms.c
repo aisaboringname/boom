@@ -936,6 +936,74 @@ void UI_MouseEvent( int dx, int dy )
 	}
 }
 
+/*
+=================
+UI_GyroEvent
+=================
+*/
+void UI_GyroEvent( float dx, float dy )
+{
+	int				i;
+	int				bias;
+	menucommon_s*	m;
+
+	if (!uis.activemenu)
+		return;
+
+	// convert X bias to 640 coords
+	bias = uis.bias / uis.xscale;
+
+	// update mouse screen position
+	uis.cursorx += dx;
+	if (uis.cursorx < -bias)
+		uis.cursorx = -bias;
+	else if (uis.cursorx > SCREEN_WIDTH+bias)
+		uis.cursorx = SCREEN_WIDTH+bias;
+
+	uis.cursory += dy;
+	if (uis.cursory < 0)
+		uis.cursory = 0;
+	else if (uis.cursory > SCREEN_HEIGHT)
+		uis.cursory = SCREEN_HEIGHT;
+
+	// region test the active menu items
+	for (i=0; i<uis.activemenu->nitems; i++)
+	{
+		m = (menucommon_s*)uis.activemenu->items[i];
+
+		if (m->flags & (QMF_GRAYED|QMF_INACTIVE))
+			continue;
+
+		if ((uis.cursorx < m->left) ||
+			(uis.cursorx > m->right) ||
+			(uis.cursory < m->top) ||
+			(uis.cursory > m->bottom))
+		{
+			// cursor out of item bounds
+			continue;
+		}
+
+		// set focus to item at cursor
+		if (uis.activemenu->cursor != i)
+		{
+			Menu_SetCursor( uis.activemenu, i );
+			((menucommon_s*)(uis.activemenu->items[uis.activemenu->cursor_prev]))->flags &= ~QMF_HASMOUSEFOCUS;
+
+			if ( !(((menucommon_s*)(uis.activemenu->items[uis.activemenu->cursor]))->flags & QMF_SILENT ) ) {
+				trap_S_StartLocalSound( menu_move_sound, CHAN_LOCAL_SOUND );
+			}
+		}
+
+		((menucommon_s*)(uis.activemenu->items[uis.activemenu->cursor]))->flags |= QMF_HASMOUSEFOCUS;
+		return;
+	}  
+
+	if (uis.activemenu->nitems > 0) {
+		// out of any region
+		((menucommon_s*)(uis.activemenu->items[uis.activemenu->cursor]))->flags &= ~QMF_HASMOUSEFOCUS;
+	}
+}
+
 char *UI_Argv( int arg ) {
 	static char	buffer[MAX_STRING_CHARS];
 

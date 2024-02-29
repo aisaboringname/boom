@@ -373,6 +373,9 @@ typedef vec_t vec5_t[5];
 
 typedef vec_t quat_t[4];
 
+typedef float mvec_t;
+typedef mvec_t mvec4_t[16];
+
 typedef	int	fixed4_t;
 typedef	int	fixed8_t;
 typedef	int	fixed16_t;
@@ -386,6 +389,7 @@ extern	vec3_t	bytedirs[NUMVERTEXNORMALS];
 
 // all drawing is done to a 640*480 virtual screen size
 // and will be automatically scaled to the real resolution
+// TODO: experiment with 1920x1080
 #define	SCREEN_WIDTH		640
 #define	SCREEN_HEIGHT		480
 
@@ -547,21 +551,39 @@ void ByteToDir( int b, vec3_t dir );
 
 #if	1
 
-#define DotProduct(x,y)			((x)[0]*(y)[0]+(x)[1]*(y)[1]+(x)[2]*(y)[2])
-#define VectorSubtract(a,b,c)	((c)[0]=(a)[0]-(b)[0],(c)[1]=(a)[1]-(b)[1],(c)[2]=(a)[2]-(b)[2])
-#define VectorAdd(a,b,c)		((c)[0]=(a)[0]+(b)[0],(c)[1]=(a)[1]+(b)[1],(c)[2]=(a)[2]+(b)[2])
-#define VectorCopy(a,b)			((b)[0]=(a)[0],(b)[1]=(a)[1],(b)[2]=(a)[2])
-#define	VectorScale(v, s, o)	((o)[0]=(v)[0]*(s),(o)[1]=(v)[1]*(s),(o)[2]=(v)[2]*(s))
-#define	VectorMA(v, s, b, o)	((o)[0]=(v)[0]+(b)[0]*(s),(o)[1]=(v)[1]+(b)[1]*(s),(o)[2]=(v)[2]+(b)[2]*(s))
+#define DotProduct(x,y)						((x)[0]*(y)[0]+(x)[1]*(y)[1]+(x)[2]*(y)[2])
+
+#define VectorSubtract(a,b,c)				((c)[0]=(a)[0]-(b)[0],(c)[1]=(a)[1]-(b)[1],(c)[2]=(a)[2]-(b)[2])
+#define VectorAdd(a,b,c)					((c)[0]=(a)[0]+(b)[0],(c)[1]=(a)[1]+(b)[1],(c)[2]=(a)[2]+(b)[2])
+#define VectorCopy(a,b)						((b)[0]=(a)[0],(b)[1]=(a)[1],(b)[2]=(a)[2])
+#define	VectorScale(v, s, o)				((o)[0]=(v)[0]*(s),(o)[1]=(v)[1]*(s),(o)[2]=(v)[2]*(s))
+#define	VectorMA(v, s, b, o)				((o)[0]=(v)[0]+(b)[0]*(s),(o)[1]=(v)[1]+(b)[1]*(s),(o)[2]=(v)[2]+(b)[2]*(s))
+
+#define MultivectorSubtract(a,b,c)			((c)[0]=(a)[0]-(b)[0],(c)[1]=(a)[1]-(b)[1],(c)[2]=(a)[2]-(b)[2],(c)[3]=(a)[3]-(b)[3],(c)[4]=(a)[4]-(b)[4],(c)[5]=(a)[5]-(b)[5],(c)[6]=(a)[6]-(b)[6],(c)[7]=(a)[7]-(b)[7],(c)[8]=(a)[8]-(b)[8],(c)[9]=(a)[9]-(b)[9],(c)[10]=(a)[10]-(b)[10],(c)[11]=(a)[11]-(b)[11],(c)[12]=(a)[12]-(b)[12],(c)[13]=(a)[13]-(b)[13],(c)[14]=(a)[14]-(b)[14],(c)[15]=(a)[15]-(b)[15])
+#define MultivectorAdd(a,b,c)				((c)[0]=(a)[0]+(b)[0],(c)[1]=(a)[1]+(b)[1],(c)[2]=(a)[2]+(b)[2],(c)[3]=(a)[3]+(b)[3],(c)[4]=(a)[4]+(b)[4],(c)[5]=(a)[5]+(b)[5],(c)[6]=(a)[6]+(b)[6],(c)[7]=(a)[7]+(b)[7],(c)[8]=(a)[8]+(b)[8],(c)[9]=(a)[9]+(b)[9],(c)[10]=(a)[10]+(b)[10],(c)[11]=(a)[11]+(b)[11],(c)[12]=(a)[12]+(b)[12],(c)[13]=(a)[13]+(b)[13],(c)[14]=(a)[14]+(b)[14],(c)[15]=(a)[15]+(b)[15])
+#define MultivectorCopy(a,b)				((b)[0]=(a)[0],(b)[1]=(a)[1],(b)[2]=(a)[2],(b)[3]=(a)[3],(b)[4]=(a)[4],(b)[5]=(a)[5],(b)[6]=(a)[6],(b)[7]=(a)[7],(b)[8]=(a)[8],(b)[9]=(a)[9],(b)[10]=(a)[10],(b)[11]=(a)[11],(b)[12]=(a)[12],(b)[13]=(a)[13],(b)[14]=(a)[14],(b)[15]=(a)[15])
+#define	MultivectorScale(mv, s, o)			((o)[0]=(mv)[0]*(s),(o)[1]=(mv)[1]*(s),(o)[2]=(mv)[2]*(s),(o)[3]=(mv)[3]*(s),(o)[4]=(mv)[4]*(s),(o)[5]=(mv)[5]*(s),(o)[6]=(mv)[6]*(s),(o)[7]=(mv)[7]*(s),(o)[8]=(mv)[8]*(s),(o)[9]=(mv)[9]*(s),(o)[10]=(mv)[10]*(s),(o)[11]=(mv)[11]*(s),(o)[12]=(mv)[12]*(s),(o)[13]=(mv)[13]*(s),(o)[14]=(mv)[14]*(s),(o)[15]=(mv)[15]*(s))
+#define MultivectorAddScalar(mv, s, o)		((o)[0]=(mv)[0]+s)
+#define MultivectorSubtractScalar(mv, s, o)	((o)[0]=(mv)[0]-s)
+#define ScalarSubtractMultivector(mv, s, o)	((o)[0]=s-(mv)[0],(o)[1]=-(mv)[1],(o)[2]=-(mv)[2],(o)[3]=-(mv)[3],(o)[4]=-(mv)[4],(o)[5]=-(mv)[5],(o)[6]=-(mv)[6],(o)[7]=-(mv)[7],(o)[8]=-(mv)[8],(o)[9]=-(mv)[9],(o)[10]=-(mv)[10],(o)[11]=-(mv)[11],(o)[12]=-(mv)[12],(o)[13]=-(mv)[13],(o)[14]=-(mv)[14],(o)[15]=-(mv)[15])
 
 #else
 
-#define DotProduct(x,y)			_DotProduct(x,y)
-#define VectorSubtract(a,b,c)	_VectorSubtract(a,b,c)
-#define VectorAdd(a,b,c)		_VectorAdd(a,b,c)
-#define VectorCopy(a,b)			_VectorCopy(a,b)
-#define	VectorScale(v, s, o)	_VectorScale(v,s,o)
-#define	VectorMA(v, s, b, o)	_VectorMA(v,s,b,o)
+#define DotProduct(x,y)						_DotProduct(x,y)
+
+#define VectorSubtract(a,b,c)				_VectorSubtract(a,b,c)
+#define VectorAdd(a,b,c)					_VectorAdd(a,b,c)
+#define VectorCopy(a,b)						_VectorCopy(a,b)
+#define	VectorScale(v, s, o)				_VectorScale(v,s,o)
+#define	VectorMA(v, s, b, o)				_VectorMA(v,s,b,o)
+
+#define MultivectorSubtract(a,b,c)			_MultivectorSubtract(a,b,c)
+#define MultivectorAdd(a,b,c)				_MultivectorAdd(a,b,c)
+#define MultivectorCopy(a,b)				_MultivectorCopy(a,b)
+#define	MultivectorScale(mv, s, o)			_MultivectorScale(v,s,o)
+#define	MultivectorAddScalar(mv, s, o)		_MultivectorAddScalar(v,s,o)
+#define	MultivectorSubtractScalar(mv, s, o)	_MultivectorAddScalar(v,s,o)
+#define	ScalarSubtractMultivector(,v, s, o)	_MultivectorAddScalar(v,s,o)
 
 #endif
 
@@ -572,27 +594,48 @@ void ByteToDir( int b, vec3_t dir );
 typedef struct {
 	float	v[3];
 } vec3struct_t;
-#define VectorCopy(a,b)	(*(vec3struct_t *)b=*(vec3struct_t *)a)
+#define VectorCopy(a,b)			(*(vec3struct_t *)b=*(vec3struct_t *)a)
+#endif
+#ifdef MultivectorCopy
+#undef MultivectorCopy
+typedef struct {
+	float	mv[16];
+} mvec4struct_t;
+#define MultivectorCopy(a,b)	(*(mvec4struct_t *)b=*(mvec4struct_t *)a)
 #endif
 #endif
 
-#define VectorClear(a)			((a)[0]=(a)[1]=(a)[2]=0)
-#define VectorNegate(a,b)		((b)[0]=-(a)[0],(b)[1]=-(a)[1],(b)[2]=-(a)[2])
-#define VectorSet(v, x, y, z)	((v)[0]=(x), (v)[1]=(y), (v)[2]=(z))
-#define Vector4Copy(a,b)		((b)[0]=(a)[0],(b)[1]=(a)[1],(b)[2]=(a)[2],(b)[3]=(a)[3])
+// VECTORS ---------------------------------
+#define VectorClear(a)				((a)[0]=(a)[1]=(a)[2]=0)
+#define VectorNegate(a,b)			((b)[0]=-(a)[0],(b)[1]=-(a)[1],(b)[2]=-(a)[2])
+#define VectorSet(v, x, y, z)		((v)[0]=(x), (v)[1]=(y), (v)[2]=(z))
+#define Vector4Copy(a,b)			((b)[0]=(a)[0],(b)[1]=(a)[1],(b)[2]=(a)[2],(b)[3]=(a)[3])
 
-#define Byte4Copy(a,b)			((b)[0]=(a)[0],(b)[1]=(a)[1],(b)[2]=(a)[2],(b)[3]=(a)[3])
+// MULTIVECTORS ----------------------------
+#define MultivectorClear(a)			((a)[0]=(a)[1]=(a)[2]=(a)[3]=(a)[4]=(a)[5]=(a)[6]=(a)[7]=(a)[8]=(a)[9]=(a)[10]=(a)[11]=(a)[12]=(a)[13]=(a)[14]=(a)[15]=0)
+#define MultivectorNegate(a,b)		((b)[0]=-(a)[0],(b)[1]=-(a)[1],(b)[2]=-(a)[2],(b)[3]=-(a)[3],(b)[4]=-(a)[4],(b)[5]=-(a)[5],(b)[6]=-(a)[6],(b)[7]=-(a)[7],(b)[8]=-(a)[8],(b)[9]=-(a)[9],(b)[10]=-(a)[10],(b)[11]=-(a)[11],(b)[12]=-(a)[12],(b)[13]=-(a)[13],(b)[14]=-(a)[14],(b)[15]=-(a)[15])
 
-#define QuatCopy(a,b)			((b)[0]=(a)[0],(b)[1]=(a)[1],(b)[2]=(a)[2],(b)[3]=(a)[3])
+#define MultivectorSet(v, s, e0, e1, e2, e3, e01, e02, e03, e12, e31, e23, e021, e013, e032, e123, e0123) ((v)[0]=(s), (v)[1]=(e0), (v)[2]=(e1), (v)[3]=(e2), (v)[4]=(e3), (v)[5]=(e01), (v)[6]=(e02), (v)[7]=(e03), (v)[8]=(e12), (v)[9]=(e31), (v)[10]=(e23), (v)[11]=(e021), (v)[12]=(e013), (v)[13]=(e032), (v)[14]=(e123), (v)[15]=(e0123))
+
+#define Byte4Copy(a,b)				((b)[0]=(a)[0],(b)[1]=(a)[1],(b)[2]=(a)[2],(b)[3]=(a)[3])
+
+#define QuatCopy(a,b)				((b)[0]=(a)[0],(b)[1]=(a)[1],(b)[2]=(a)[2],(b)[3]=(a)[3])
 
 #define	SnapVector(v) {v[0]=((int)(v[0]));v[1]=((int)(v[1]));v[2]=((int)(v[2]));}
 // just in case you don't want to use the macros
 vec_t _DotProduct( const vec3_t v1, const vec3_t v2 );
+
 void _VectorSubtract( const vec3_t veca, const vec3_t vecb, vec3_t out );
 void _VectorAdd( const vec3_t veca, const vec3_t vecb, vec3_t out );
 void _VectorCopy( const vec3_t in, vec3_t out );
 void _VectorScale( const vec3_t in, float scale, vec3_t out );
 void _VectorMA( const vec3_t veca, float scale, const vec3_t vecb, vec3_t vecc );
+
+void _MultivectorSubtract( mvec4_t *mveca, mvec4_t *mvecb, mvec4_t *out );
+void _MultivectorAdd( mvec4_t *mveca, mvec4_t *mvecb, mvec4_t *out );
+void _MultivectorCopy( mvec4_t *in, mvec4_t *out );
+void _MultivectorScale( mvec4_t *in, float scale, mvec4_t *out );
+void _MultivectorScalarAdd( mvec4_t *in, float scalar, mvec4_t *out );
 
 unsigned ColorBytes3 (float r, float g, float b);
 unsigned ColorBytes4 (float r, float g, float b, float a);
@@ -617,6 +660,214 @@ static ID_INLINE vec_t VectorLength( const vec3_t v ) {
 
 static ID_INLINE vec_t VectorLengthSquared( const vec3_t v ) {
 	return (v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+}
+
+static ID_INLINE mvec_t MultivectorLength( mvec4_t *mv ) {
+	return (mvec_t)sqrt ((*mv[0]) * (*mv[0]) + (*mv[2]) * (*mv[2]) + (*mv[3]) * (*mv[3]) + (*mv[4]) * (*mv[4]) + (*mv[8]) * (*mv[8]) + (*mv[9]) * (*mv[9]) + (*mv[10]) * (*mv[10]) + (*mv[14]) * (*mv[14]));
+}
+
+static ID_INLINE mvec_t MultivectorLengthSquared( mvec4_t *mv ) {
+	return ((*mv[0]) * (*mv[0]) + (*mv[2]) * (*mv[2]) + (*mv[3]) * (*mv[3]) + (*mv[4]) * (*mv[4]) + (*mv[8]) * (*mv[8]) + (*mv[9]) * (*mv[9]) + (*mv[10]) * (*mv[10]) + (*mv[14]) * (*mv[14]));
+}
+
+static ID_INLINE void MultivectorInverse( mvec4_t *mv ){
+	*mv[0] = (*mv[0]);
+	*mv[1] = (*mv[1]);
+	*mv[2] = (*mv[2]);
+	*mv[3] = (*mv[3]);
+	*mv[4] = (*mv[4]);
+	*mv[5] = -(*mv[5]);
+	*mv[6] = -(*mv[6]);
+	*mv[7] = -(*mv[7]);
+	*mv[8] = -(*mv[8]);
+	*mv[9] = -(*mv[9]);
+	*mv[10] = -(*mv[10]);
+	*mv[11] = -(*mv[11]);
+	*mv[12] = -(*mv[12]);
+	*mv[13] = -(*mv[13]);
+	*mv[14] = -(*mv[14]);
+	*mv[15] = (*mv[15]);
+}
+
+static ID_INLINE void MultivectorDual( mvec4_t *mv, qboolean undual ){
+	mvec4_t	temp;
+
+	MultivectorCopy( *mv, temp );
+	*mv[0] = temp[15];
+	*mv[5] = temp[10];
+	*mv[6] = temp[9];
+	*mv[7] = temp[8];
+	*mv[8] = temp[7];
+	*mv[9] = temp[6];
+	*mv[10] = temp[5];
+	*mv[15] = temp[0];
+
+	if ( !undual ) {
+		*mv[1] = temp[14];
+		*mv[2] = temp[13];
+		*mv[3] = temp[12];
+		*mv[4] = temp[11];
+		*mv[11] = -temp[4];
+		*mv[12] = -temp[3];
+		*mv[13] = -temp[2];
+		*mv[14] = -temp[1];
+	} else {
+		*mv[1] = -temp[14];
+		*mv[2] = -temp[13];
+		*mv[3] = -temp[12];
+		*mv[4] = -temp[11];
+		*mv[11] = temp[4];
+		*mv[12] = temp[3];
+		*mv[13] = temp[2];
+		*mv[14] = temp[1];
+	}
+}
+
+static ID_INLINE void MultivectorConjugate( mvec4_t *mv ){
+	*mv[0] = (*mv[0]);
+	*mv[1] = -(*mv[1]);
+	*mv[2] = -(*mv[2]);
+	*mv[3] = -(*mv[3]);
+	*mv[4] = -(*mv[4]);
+	*mv[5] = -(*mv[5]);
+	*mv[6] = -(*mv[6]);
+	*mv[7] = -(*mv[7]);
+	*mv[8] = -(*mv[8]);
+	*mv[9] = -(*mv[9]);
+	*mv[10] = -(*mv[10]);
+	*mv[11] = (*mv[11]);
+	*mv[12] = (*mv[12]);
+	*mv[13] = (*mv[13]);
+	*mv[14] = (*mv[14]);
+	*mv[15] = (*mv[15]);
+}
+
+static ID_INLINE void MultivectorInvolute( mvec4_t *mv ){
+	*mv[0] = (*mv[0]);
+	*mv[1] = -(*mv[1]);
+	*mv[2] = -(*mv[2]);
+	*mv[3] = -(*mv[3]);
+	*mv[4] = -(*mv[4]);
+	*mv[5] = (*mv[5]);
+	*mv[6] = (*mv[6]);
+	*mv[7] = (*mv[7]);
+	*mv[8] = (*mv[8]);
+	*mv[9] = (*mv[9]);
+	*mv[10] = (*mv[10]);
+	*mv[11] = -(*mv[11]);
+	*mv[12] = -(*mv[12]);
+	*mv[13] = -(*mv[13]);
+	*mv[14] = -(*mv[14]);
+	*mv[15] = (*mv[15]);
+}
+
+static ID_INLINE void GeoProduct( mvec4_t *mv1, mvec4_t *mv2, mvec4_t *geo) {
+	*geo[0] = (*mv2[0]) * (*mv1[0]) + (*mv2[2]) * (*mv1[2]) + (*mv2[3]) * (*mv1[3]) + (*mv2[4]) * (*mv1[4]) - (*mv2[8]) * (*mv1[8]) - (*mv2[9]) * (*mv1[9]) - (*mv2[10]) * (*mv1[10]) - (*mv2[14]) * (*mv1[14]);
+	*geo[1] = (*mv2[1]) * (*mv1[0]) + (*mv2[0]) * (*mv1[1]) - (*mv2[5]) * (*mv1[2]) - (*mv2[6]) * (*mv1[3]) - (*mv2[7]) * (*mv1[4]) + (*mv2[2]) * (*mv1[5]) + (*mv2[3]) * (*mv1[6]) + (*mv2[4]) * (*mv1[7]) + (*mv2[11]) * (*mv1[8]) + (*mv2[12]) * (*mv1[9]) + (*mv2[13]) * (*mv1[10]) + (*mv2[8]) * (*mv1[11]) + (*mv2[9]) * (*mv1[12]) + (*mv2[10]) * (*mv1[13]) + (*mv2[15]) * (*mv1[14]) - (*mv2[14]) * (*mv1[15]);
+	*geo[2] = (*mv2[2]) * (*mv1[0]) + (*mv2[0]) * (*mv1[2]) - (*mv2[8]) * (*mv1[3]) + (*mv2[9]) * (*mv1[4]) + (*mv2[3]) * (*mv1[8]) - (*mv2[4]) * (*mv1[9]) - (*mv2[14]) * (*mv1[10]) - (*mv2[10]) * (*mv1[14]);
+	*geo[3] = (*mv2[3]) * (*mv1[0]) + (*mv2[8]) * (*mv1[2]) + (*mv2[0]) * (*mv1[3]) - (*mv2[10]) * (*mv1[4]) - (*mv2[2]) * (*mv1[8]) - (*mv2[14]) * (*mv1[9]) + (*mv2[4]) * (*mv1[10]) - (*mv2[9]) * (*mv1[14]);
+	*geo[4] = (*mv2[4]) * (*mv1[0]) - (*mv2[9]) * (*mv1[2]) + (*mv2[10]) * (*mv1[3]) + (*mv2[0]) * (*mv1[4]) - (*mv2[14]) * (*mv1[8]) + (*mv2[2]) * (*mv1[9]) - (*mv2[3]) * (*mv1[10]) - (*mv2[8]) * (*mv1[14]);
+	*geo[5] = (*mv2[5]) * (*mv1[0]) + (*mv2[2]) * (*mv1[1]) - (*mv2[1]) * (*mv1[2]) - (*mv2[11]) * (*mv1[3]) + (*mv2[12]) * (*mv1[4]) + (*mv2[0]) * (*mv1[5]) - (*mv2[8]) * (*mv1[6]) + (*mv2[9]) * (*mv1[7]) + (*mv2[6]) * (*mv1[8]) - (*mv2[7]) * (*mv1[9]) - (*mv2[15]) * (*mv1[10]) - (*mv2[3]) * (*mv1[11]) + (*mv2[4]) * (*mv1[12]) + (*mv2[14]) * (*mv1[13]) - (*mv2[13]) * (*mv1[14]) - (*mv2[10]) * (*mv1[15]);
+	*geo[6] = (*mv2[6]) * (*mv1[0]) + (*mv2[3]) * (*mv1[1]) + (*mv2[11]) * (*mv1[2]) - (*mv2[1]) * (*mv1[3]) - (*mv2[13]) * (*mv1[4]) + (*mv2[8]) * (*mv1[5]) + (*mv2[0]) * (*mv1[6]) - (*mv2[10]) * (*mv1[7]) - (*mv2[5]) * (*mv1[8]) - (*mv2[15]) * (*mv1[9]) + (*mv2[7]) * (*mv1[10]) + (*mv2[2]) * (*mv1[11]) + (*mv2[14]) * (*mv1[12]) - (*mv2[4]) * (*mv1[13]) - (*mv2[12]) * (*mv1[14]) - (*mv2[9]) * (*mv1[15]);
+	*geo[7] = (*mv2[7]) * (*mv1[0]) + (*mv2[4]) * (*mv1[1]) - (*mv2[12]) * (*mv1[2]) + (*mv2[13]) * (*mv1[3]) - (*mv2[1]) * (*mv1[4]) - (*mv2[9]) * (*mv1[5]) + (*mv2[10]) * (*mv1[6]) + (*mv2[0]) * (*mv1[7]) - (*mv2[15]) * (*mv1[8]) + (*mv2[5]) * (*mv1[9]) - (*mv2[6]) * (*mv1[10]) + (*mv2[14]) * (*mv1[11]) - (*mv2[2]) * (*mv1[12]) + (*mv2[3]) * (*mv1[13]) - (*mv2[11]) * (*mv1[14]) - (*mv2[8]) * (*mv1[15]);
+	*geo[8] = (*mv2[8]) * (*mv1[0]) + (*mv2[3]) * (*mv1[2]) - (*mv2[2]) * (*mv1[3]) + (*mv2[14]) * (*mv1[4]) + (*mv2[0]) * (*mv1[8]) + (*mv2[10]) * (*mv1[9]) - (*mv2[9]) * (*mv1[10]) + (*mv2[4]) * (*mv1[14]);
+	*geo[9] = (*mv2[9]) * (*mv1[0]) - (*mv2[4]) * (*mv1[2]) + (*mv2[14]) * (*mv1[3]) + (*mv2[2]) * (*mv1[4]) - (*mv2[10]) * (*mv1[8]) + (*mv2[0]) * (*mv1[9]) + (*mv2[8]) * (*mv1[10]) + (*mv2[3]) * (*mv1[14]);
+	*geo[10] = (*mv2[10]) * (*mv1[0]) + (*mv2[14]) * (*mv1[2]) + (*mv2[4]) * (*mv1[3]) - (*mv2[3]) * (*mv1[4]) + (*mv2[9]) * (*mv1[8]) - (*mv2[8]) * (*mv1[9]) + (*mv2[0]) * (*mv1[10]) + (*mv2[2]) * (*mv1[14]);
+	*geo[11] = (*mv2[11]) * (*mv1[0]) - (*mv2[8]) * (*mv1[1]) + (*mv2[6]) * (*mv1[2]) - (*mv2[5]) * (*mv1[3]) + (*mv2[15]) * (*mv1[4]) - (*mv2[3]) * (*mv1[5]) + (*mv2[2]) * (*mv1[6]) - (*mv2[14]) * (*mv1[7]) - (*mv2[1]) * (*mv1[8]) + (*mv2[13]) * (*mv1[9]) - (*mv2[12]) * (*mv1[10]) + (*mv2[0]) * (*mv1[11]) + (*mv2[10]) * (*mv1[12]) - (*mv2[9]) * (*mv1[13]) + (*mv2[7]) * (*mv1[14]) - (*mv2[4]) * (*mv1[15]);
+	*geo[12] = (*mv2[12]) * (*mv1[0]) - (*mv2[9]) * (*mv1[1]) - (*mv2[7]) * (*mv1[2]) + (*mv2[15]) * (*mv1[3]) + (*mv2[5]) * (*mv1[4]) + (*mv2[4]) * (*mv1[5]) - (*mv2[14]) * (*mv1[6]) - (*mv2[2]) * (*mv1[7]) - (*mv2[13]) * (*mv1[8]) - (*mv2[1]) * (*mv1[9]) + (*mv2[11]) * (*mv1[10]) - (*mv2[10]) * (*mv1[11]) + (*mv2[0]) * (*mv1[12]) + (*mv2[8]) * (*mv1[13]) + (*mv2[6]) * (*mv1[14]) - (*mv2[3]) * (*mv1[15]);
+	*geo[13] = (*mv2[13]) * (*mv1[0]) - (*mv2[10]) * (*mv1[1]) + (*mv2[15]) * (*mv1[2]) + (*mv2[7]) * (*mv1[3]) - (*mv2[6]) * (*mv1[4]) - (*mv2[14]) * (*mv1[5]) - (*mv2[4]) * (*mv1[6]) + (*mv2[3]) * (*mv1[7]) + (*mv2[12]) * (*mv1[8]) - (*mv2[11]) * (*mv1[9]) - (*mv2[1]) * (*mv1[10]) + (*mv2[9]) * (*mv1[11]) - (*mv2[8]) * (*mv1[12]) + (*mv2[0]) * (*mv1[13]) + (*mv2[5]) * (*mv1[14]) - (*mv2[2]) * (*mv1[15]);
+	*geo[14] = (*mv2[14]) * (*mv1[0]) + (*mv2[10]) * (*mv1[2]) + (*mv2[9]) * (*mv1[3]) + (*mv2[8]) * (*mv1[4]) + (*mv2[4]) * (*mv1[8]) + (*mv2[3]) * (*mv1[9]) + (*mv2[2]) * (*mv1[10]) + (*mv2[0]) * (*mv1[14]);
+	*geo[15] = (*mv2[15]) * (*mv1[0]) + (*mv2[14]) * (*mv1[1]) + (*mv2[13]) * (*mv1[2]) + (*mv2[12]) * (*mv1[3]) + (*mv2[11]) * (*mv1[4]) + (*mv2[10]) * (*mv1[5]) + (*mv2[9]) * (*mv1[6]) + (*mv2[8]) * (*mv1[7]) + (*mv2[7]) * (*mv1[8]) + (*mv2[6]) * (*mv1[9]) + (*mv2[5]) * (*mv1[10]) - (*mv2[4]) * (*mv1[11]) - (*mv2[3]) * (*mv1[12]) - (*mv2[2]) * (*mv1[13]) - (*mv2[1]) * (*mv1[14]) + (*mv2[0]) * (*mv1[15]);
+}
+
+static ID_INLINE void WedgeProduct( mvec4_t *mv1, mvec4_t *mv2, mvec4_t *wedge ) {
+	// meet
+	*wedge[0] = (*mv2[0]) * (*mv1[0]);
+	*wedge[1] = (*mv2[1]) * (*mv1[0]) + (*mv2[0]) * (*mv1[1]);
+	*wedge[2] = (*mv2[2]) * (*mv1[0]) + (*mv2[0]) * (*mv1[2]);
+	*wedge[3] = (*mv2[3]) * (*mv1[0]) + (*mv2[0]) * (*mv1[3]);
+	*wedge[4] = (*mv2[4]) * (*mv1[0]) + (*mv2[0]) * (*mv1[4]);
+	*wedge[5] = (*mv2[5]) * (*mv1[0]) + (*mv2[2]) * (*mv1[1]) - (*mv2[1]) * (*mv1[2]) + (*mv2[0]) * (*mv1[5]);
+	*wedge[6] = (*mv2[6]) * (*mv1[0]) + (*mv2[3]) * (*mv1[1]) - (*mv2[1]) * (*mv1[3]) + (*mv2[0]) * (*mv1[6]);
+	*wedge[7] = (*mv2[7]) * (*mv1[0]) + (*mv2[4]) * (*mv1[1]) - (*mv2[1]) * (*mv1[4]) + (*mv2[0]) * (*mv1[7]);
+	*wedge[8] = (*mv2[8]) * (*mv1[0]) + (*mv2[3]) * (*mv1[2]) - (*mv2[2]) * (*mv1[3]) + (*mv2[0]) * (*mv1[8]);
+	*wedge[9] = (*mv2[9]) * (*mv1[0]) - (*mv2[4]) * (*mv1[2]) + (*mv2[2]) * (*mv1[4]) + (*mv2[0]) * (*mv1[9]);
+	*wedge[10] = (*mv2[10]) * (*mv1[0]) + (*mv2[4]) * (*mv1[3]) - (*mv2[3]) * (*mv1[4]) + (*mv2[0]) * (*mv1[10]);
+	*wedge[11] = (*mv2[11]) * (*mv1[0]) - (*mv2[8]) * (*mv1[1]) + (*mv2[6]) * (*mv1[2]) - (*mv2[5]) * (*mv1[3]) - (*mv2[3]) * (*mv1[5]) + (*mv2[2]) * (*mv1[6]) - (*mv2[1]) * (*mv1[8]) + (*mv2[0]) * (*mv1[11]);
+	*wedge[12] = (*mv2[12]) * (*mv1[0]) - (*mv2[9]) * (*mv1[1]) - (*mv2[7]) * (*mv1[2]) + (*mv2[5]) * (*mv1[4]) + (*mv2[4]) * (*mv1[5]) - (*mv2[2]) * (*mv1[7]) - (*mv2[1]) * (*mv1[9]) + (*mv2[0]) * (*mv1[12]);
+	*wedge[13] = (*mv2[13]) * (*mv1[0]) - (*mv2[10]) * (*mv1[1]) + (*mv2[7]) * (*mv1[3]) - (*mv2[6]) * (*mv1[4]) - (*mv2[4]) * (*mv1[6]) + (*mv2[3]) * (*mv1[7]) - (*mv2[1]) * (*mv1[10]) + (*mv2[0]) * (*mv1[13]);
+	*wedge[14] = (*mv2[14]) * (*mv1[0]) + (*mv2[10]) * (*mv1[2]) + (*mv2[9]) * (*mv1[3]) + (*mv2[8]) * (*mv1[4]) + (*mv2[4]) * (*mv1[8]) + (*mv2[3]) * (*mv1[9]) + (*mv2[2]) * (*mv1[10]) + (*mv2[0]) * (*mv1[14]);
+	*wedge[15] = (*mv2[15]) * (*mv1[0]) + (*mv2[14]) * (*mv1[1]) + (*mv2[13]) * (*mv1[2]) + (*mv2[12]) * (*mv1[3]) + (*mv2[11]) * (*mv1[4]) + (*mv2[10]) * (*mv1[5]) + (*mv2[9]) * (*mv1[6]) + (*mv2[8]) * (*mv1[7]) + (*mv2[7]) * (*mv1[8]) + (*mv2[6]) * (*mv1[9]) + (*mv2[5]) * (*mv1[10]) - (*mv2[4]) * (*mv1[11]) - (*mv2[3]) * (*mv1[12]) - (*mv2[2]) * (*mv1[13]) - (*mv2[1]) * (*mv1[14]) + (*mv2[0]) * (*mv1[15]);
+}
+
+static ID_INLINE void RegressiveProduct( mvec4_t *mv1, mvec4_t *mv2, mvec4_t *regressive ) {
+	// join
+	*regressive[15] = 1 * ((*mv1[15]) * (*mv2[15]));
+	*regressive[14] = -1 * ((*mv1[14]) * -1 * (*mv2[15]) + (*mv1[15]) * (*mv2[14]) * -1);
+	*regressive[13] = -1 * ((*mv1[13]) * -1 * (*mv2[15]) + (*mv1[15]) * (*mv2[13]) * -1);
+	*regressive[12] = -1 * ((*mv1[12]) * -1 * (*mv2[15]) + (*mv1[15]) * (*mv2[12]) * -1);
+	*regressive[11] = -1 * ((*mv1[11]) * -1 * (*mv2[15]) + (*mv1[15]) * (*mv2[11]) * -1);
+	*regressive[10] = 1 * ((*mv1[10]) * (*mv2[15]) + (*mv1[13]) * -1 * (*mv2[14]) * -1 - (*mv1[14]) * -1 * (*mv2[13]) * -1 + (*mv1[15]) * (*mv2[10]));
+	*regressive[9] = 1 * ((*mv1[9]) * (*mv2[15]) + (*mv1[12]) * -1 * (*mv2[14]) * -1 - (*mv1[14]) * -1 * (*mv2[12]) * -1 + (*mv1[15]) * (*mv2[9]));
+	*regressive[8] = 1 * ((*mv1[8]) * (*mv2[15]) + (*mv1[11]) * -1 * (*mv2[14]) * -1 - (*mv1[14]) * -1 * (*mv2[11]) * -1 + (*mv1[15]) * (*mv2[8]));
+	*regressive[7] = 1 * ((*mv1[7]) * (*mv2[15]) + (*mv1[12]) * -1 * (*mv2[13]) * -1 - (*mv1[13]) * -1 * (*mv2[12]) * -1 + (*mv1[15]) * (*mv2[7]));
+	*regressive[6] = 1 * ((*mv1[6]) * (*mv2[15]) - (*mv1[11]) * -1 * (*mv2[13]) * -1 + (*mv1[13]) * -1 * (*mv2[11]) * -1 + (*mv1[15]) * (*mv2[6]));
+	*regressive[5] = 1 * ((*mv1[5]) * (*mv2[15]) + (*mv1[11]) * -1 * (*mv2[12]) * -1 - (*mv1[12]) * -1 * (*mv2[11]) * -1 + (*mv1[15]) * (*mv2[5]));
+	*regressive[4] = 1 * ((*mv1[4]) * (*mv2[15]) - (*mv1[7]) * (*mv2[14]) * -1 + (*mv1[9]) * (*mv2[13]) * -1 - (*mv1[10]) * (*mv2[12]) * -1 - (*mv1[12]) * -1 * (*mv2[10]) + (*mv1[13]) * -1 * (*mv2[9]) - (*mv1[14]) * -1 * (*mv2[7]) + (*mv1[15]) * (*mv2[4]));
+	*regressive[3] = 1 * ((*mv1[3]) * (*mv2[15]) - (*mv1[6]) * (*mv2[14]) * -1 - (*mv1[8]) * (*mv2[13]) * -1 + (*mv1[10]) * (*mv2[11]) * -1 + (*mv1[11]) * -1 * (*mv2[10]) - (*mv1[13]) * -1 * (*mv2[8]) - (*mv1[14]) * -1 * (*mv2[6]) + (*mv1[15]) * (*mv2[3]));
+	*regressive[2] = 1 * ((*mv1[2]) * (*mv2[15]) - (*mv1[5]) * (*mv2[14]) * -1 + (*mv1[8]) * (*mv2[12]) * -1 - (*mv1[9]) * (*mv2[11]) * -1 - (*mv1[11]) * -1 * (*mv2[9]) + (*mv1[12]) * -1 * (*mv2[8]) - (*mv1[14]) * -1 * (*mv2[5]) + (*mv1[15]) * (*mv2[2]));
+	*regressive[1] = 1 * ((*mv1[1]) * (*mv2[15]) + (*mv1[5]) * (*mv2[13]) * -1 + (*mv1[6]) * (*mv2[12]) * -1 + (*mv1[7]) * (*mv2[11]) * -1 + (*mv1[11]) * -1 * (*mv2[7]) + (*mv1[12]) * -1 * (*mv2[6]) + (*mv1[13]) * -1 * (*mv2[5]) + (*mv1[15]) * (*mv2[1]));
+	*regressive[0] = 1 * ((*mv1[0]) * (*mv2[15]) + (*mv1[1]) * (*mv2[14]) * -1 + (*mv1[2]) * (*mv2[13]) * -1 + (*mv1[3]) * (*mv2[12]) * -1 + (*mv1[4]) * (*mv2[11]) * -1 + (*mv1[5]) * (*mv2[10]) + (*mv1[6]) * (*mv2[9]) + (*mv1[7]) * (*mv2[8]) + (*mv1[8]) * (*mv2[7]) + (*mv1[9]) * (*mv2[6]) + (*mv1[10]) * (*mv2[5]) - (*mv1[11]) * -1 * (*mv2[4]) - (*mv1[12]) * -1 * (*mv2[3]) - (*mv1[13]) * -1 * (*mv2[2]) - (*mv1[14]) * -1 * (*mv2[1]) + (*mv1[15]) * (*mv2[0]));
+}
+
+static ID_INLINE void MVDotProduct( mvec4_t *mv1, mvec4_t *mv2, mvec4_t *dot ) {
+	*dot[0]= (*mv2[0]) * (*mv1[0]) + (*mv2[2]) * (*mv1[2]) + (*mv2[3]) * (*mv1[3]) + (*mv2[4]) * (*mv1[4]) - (*mv2[8]) * (*mv1[8]) - (*mv2[9]) * (*mv1[9]) - (*mv2[10]) * (*mv1[10]) - (*mv2[14]) * (*mv1[14]);
+	*dot[1]= (*mv2[1]) * (*mv1[0]) + (*mv2[0]) * (*mv1[1]) - (*mv2[5]) * (*mv1[2]) - (*mv2[6]) * (*mv1[3]) - (*mv2[7]) * (*mv1[4]) + (*mv2[2]) * (*mv1[5]) + (*mv2[3]) * (*mv1[6]) + (*mv2[4]) * (*mv1[7]) + (*mv2[11]) * (*mv1[8]) + (*mv2[12]) * (*mv1[9]) + (*mv2[13]) * (*mv1[10]) + (*mv2[8]) * (*mv1[11]) + (*mv2[9]) * (*mv1[12]) + (*mv2[10]) * (*mv1[13]) + (*mv2[15]) * (*mv1[14]) - (*mv2[14]) * (*mv1[15]);
+	*dot[2]= (*mv2[2]) * (*mv1[0]) + (*mv2[0]) * (*mv1[2]) - (*mv2[8]) * (*mv1[3]) + (*mv2[9]) * (*mv1[4]) + (*mv2[3]) * (*mv1[8]) - (*mv2[4]) * (*mv1[9]) - (*mv2[14]) * (*mv1[10]) - (*mv2[10]) * (*mv1[14]);
+	*dot[3]= (*mv2[3]) * (*mv1[0]) + (*mv2[8]) * (*mv1[2]) + (*mv2[0]) * (*mv1[3]) - (*mv2[10]) * (*mv1[4]) - (*mv2[2]) * (*mv1[8]) - (*mv2[14]) * (*mv1[9]) + (*mv2[4]) * (*mv1[10]) - (*mv2[9]) * (*mv1[14]);
+	*dot[4]= (*mv2[4]) * (*mv1[0]) - (*mv2[9]) * (*mv1[2]) + (*mv2[10]) * (*mv1[3]) + (*mv2[0]) * (*mv1[4]) - (*mv2[14]) * (*mv1[8]) + (*mv2[2]) * (*mv1[9]) - (*mv2[3]) * (*mv1[10]) - (*mv2[8]) * (*mv1[14]);
+	*dot[5]= (*mv2[5]) * (*mv1[0]) - (*mv2[11]) * (*mv1[3]) + (*mv2[12]) * (*mv1[4]) + (*mv2[0]) * (*mv1[5]) - (*mv2[15]) * (*mv1[10]) - (*mv2[3]) * (*mv1[11]) + (*mv2[4]) * (*mv1[12]) - (*mv2[10]) * (*mv1[15]);
+	*dot[6]= (*mv2[6]) * (*mv1[0]) + (*mv2[11]) * (*mv1[2]) - (*mv2[13]) * (*mv1[4]) + (*mv2[0]) * (*mv1[6]) - (*mv2[15]) * (*mv1[9]) + (*mv2[2]) * (*mv1[11]) - (*mv2[4]) * (*mv1[13]) - (*mv2[9]) * (*mv1[15]);
+	*dot[7]= (*mv2[7]) * (*mv1[0]) - (*mv2[12]) * (*mv1[2]) + (*mv2[13]) * (*mv1[3]) + (*mv2[0]) * (*mv1[7]) - (*mv2[15]) * (*mv1[8]) - (*mv2[2]) * (*mv1[12]) + (*mv2[3]) * (*mv1[13]) - (*mv2[8]) * (*mv1[15]);
+	*dot[8]= (*mv2[8]) * (*mv1[0]) + (*mv2[14]) * (*mv1[4]) + (*mv2[0]) * (*mv1[8]) + (*mv2[4]) * (*mv1[14]);
+	*dot[9]= (*mv2[9]) * (*mv1[0]) + (*mv2[14]) * (*mv1[3]) + (*mv2[0]) * (*mv1[9]) + (*mv2[3]) * (*mv1[14]);
+	*dot[10]= (*mv2[10]) * (*mv1[0]) + (*mv2[14]) * (*mv1[2]) + (*mv2[0]) * (*mv1[10]) + (*mv2[2]) * (*mv1[14]);
+	*dot[11]= (*mv2[11]) * (*mv1[0]) + (*mv2[15]) * (*mv1[4]) + (*mv2[0]) * (*mv1[11]) - (*mv2[4]) * (*mv1[15]);
+	*dot[12]= (*mv2[12]) * (*mv1[0]) + (*mv2[15]) * (*mv1[3]) + (*mv2[0]) * (*mv1[12]) - (*mv2[3]) * (*mv1[15]);
+	*dot[13]= (*mv2[13]) * (*mv1[0]) + (*mv2[15]) * (*mv1[2]) + (*mv2[0]) * (*mv1[13]) - (*mv2[2]) * (*mv1[15]);
+	*dot[14]= (*mv2[14]) * (*mv1[0]) + (*mv2[0]) * (*mv1[14]);
+	*dot[15]= (*mv2[15]) * (*mv1[0]) + (*mv2[0]) * (*mv1[15]);
+}
+
+// fast multivector normalize routine that does not check to make sure
+// that length != 0, nor does it return length, uses rsqrt approximation
+// TODO: learn more about multivector normalization
+static ID_INLINE void MultivectorNormalizeFast( mvec4_t *mv )
+{
+	float	ilength;
+	mvec4_t	temp, conjugate;
+
+	MultivectorCopy( *mv, conjugate );
+	MultivectorConjugate( &conjugate );
+	GeoProduct( mv, &conjugate, &temp );
+	ilength = Q_rsqrt( abs( (float) temp[0] ) );
+
+	*mv[0] *= ilength;
+	*mv[1] *= ilength;
+	*mv[2] *= ilength;
+	*mv[3] *= ilength;
+	*mv[4] *= ilength;
+	*mv[5] *= ilength;
+	*mv[6] *= ilength;
+	*mv[7] *= ilength;
+	*mv[8] *= ilength;
+	*mv[9] *= ilength;
+	*mv[10] *= ilength;
+	*mv[11] *= ilength;
+	*mv[12] *= ilength;
+	*mv[13] *= ilength;
+	*mv[14] *= ilength;
+	*mv[15] *= ilength;
 }
 
 static ID_INLINE vec_t Distance( const vec3_t p1, const vec3_t p2 ) {
@@ -653,9 +904,18 @@ static ID_INLINE void VectorInverse( vec3_t v ){
 }
 
 static ID_INLINE void CrossProduct( const vec3_t v1, const vec3_t v2, vec3_t cross ) {
+	#if 1 
 	cross[0] = v1[1]*v2[2] - v1[2]*v2[1];
 	cross[1] = v1[2]*v2[0] - v1[0]*v2[2];
 	cross[2] = v1[0]*v2[1] - v1[1]*v2[0];
+
+	// TODO: define cross in terms of geometric algebra
+	#else
+	mvec3_t	wedge
+
+	WedgeProduct( v1, v2, wedge );
+	CrossFromWedge( wedge, cross );
+	#endif
 }
 
 #else
@@ -665,13 +925,33 @@ vec_t VectorLength( const vec3_t v );
 
 vec_t VectorLengthSquared( const vec3_t v );
 
+mvec_t MultivectorLength( mvec4_t *mv );
+
+mvec_t MultivectorLengthSquared( mvec4_t *mv );
+
 vec_t Distance( const vec3_t p1, const vec3_t p2 );
 
 vec_t DistanceSquared( const vec3_t p1, const vec3_t p2 );
 
 void VectorNormalizeFast( vec3_t v );
 
+void MultivectorNormalizeFast( mvec4_t *mv );
+
 void VectorInverse( vec3_t v );
+
+void MultivectorInverse( mvec4_t *mv );
+
+void MultivectorConjugate( mvec4_t *mv );
+
+void MultivectorInvolute( mvec4_t *mv );
+
+void GeoProduct( mvec4_t *mv1, mvec4_t *mv2, mvec4_t *geo);
+
+void WedgeProduct( mvec4_t *mv1, mvec4_t *mv2, mvec4_t *wedge );
+
+void RegressiveProduct( mvec4_t *mv1, mvec4_t *mv2, mvec4_t *regressive );
+
+void MVDotProduct( mvec4_t *mv1, mvec4_t *mv2, mvec4_t *dot );
 
 void CrossProduct( const vec3_t v1, const vec3_t v2, vec3_t cross );
 
@@ -679,6 +959,7 @@ void CrossProduct( const vec3_t v1, const vec3_t v2, vec3_t cross );
 
 vec_t VectorNormalize (vec3_t v);		// returns vector length
 vec_t VectorNormalize2( const vec3_t v, vec3_t out );
+mvec_t MultivectorNormalize (mvec4_t *mv);
 void Vector4Scale( const vec4_t in, vec_t scale, vec4_t out );
 void VectorRotate( vec3_t in, vec3_t matrix[3], vec3_t out );
 int Q_log2(int val);
@@ -709,6 +990,10 @@ qboolean BoundsIntersectPoint(const vec3_t mins, const vec3_t maxs,
 		const vec3_t origin);
 
 float	AngleMod(float a);
+float	LerpValue (float from, float to, float frac, qboolean clamp);
+//void	LerpVector (vec3_t from, vec3_t to, float frac, float angle, vec3_t out, qboolean clamp);
+//void	SlerpVector (vec3_t from, vec3_t to, float frac, float angle, vec3_t out);
+//void	NlerpVector (vec3_t from, vec3_t to, float frac, vec3_t out, qboolean fast, qboolean clamp);
 float	LerpAngle (float from, float to, float frac);
 float	AngleSubtract( float a1, float a2 );
 void	AnglesSubtract( vec3_t v1, vec3_t v2, vec3_t v3 );

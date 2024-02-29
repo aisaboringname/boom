@@ -5942,10 +5942,11 @@ void *Display_CaptureItem(int x, int y) {
 // FIXME: 
 qboolean Display_MouseMove(void *p, int x, int y) {
 	int i;
+	float xmove, ymove;
 	menuDef_t *menu = p;
 
 	if (menu == NULL) {
-    menu = Menu_GetFocused();
+	menu = Menu_GetFocused();
 		if (menu) {
 			if (menu->window.flags & WINDOW_POPUP) {
 				Menu_HandleMouseMove(menu, x, y);
@@ -5956,11 +5957,36 @@ qboolean Display_MouseMove(void *p, int x, int y) {
 			Menu_HandleMouseMove(&Menus[i], x, y);
 		}
 	} else {
-		menu->window.rect.x += x;
-		menu->window.rect.y += y;
+		menu->window.rect.x += xmove;
+		menu->window.rect.y += ymove;
 		Menu_UpdatePosition(menu);
 	}
- 	return qtrue;
+	return qtrue;
+
+}
+
+qboolean Display_GyroMove(void *p, float x, float y) {
+	int i;
+	float xmove, ymove;
+	menuDef_t *menu = p;
+
+	if (menu == NULL) {
+	menu = Menu_GetFocused();
+		if (menu) {
+			if (menu->window.flags & WINDOW_POPUP) {
+				Menu_HandleMouseMove(menu, x, y);
+				return qtrue;
+			}
+		}
+		for (i = 0; i < menuCount; i++) {
+			Menu_HandleMouseMove(&Menus[i], x, y);
+		}
+	} else {
+		menu->window.rect.x += xmove;
+		menu->window.rect.y += ymove;
+		Menu_UpdatePosition(menu);
+	}
+	return qtrue;
 
 }
 

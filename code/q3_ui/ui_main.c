@@ -61,6 +61,12 @@ Q_EXPORT intptr_t vmMain( int command, int arg0, int arg1, int arg2, int arg3, i
 		UI_MouseEvent( arg0, arg1 );
 		return 0;
 
+	case UI_GYRO_EVENT:
+		// evil floating point bit level hacking 2: electric boogaloo reversal
+		Com_Printf("arg0: %f\narg0 (base): %d\narg1: %f\narg1 (base): %d\n", * ( float * ) &arg0, arg0, * ( float * ) &arg1, arg1);
+		UI_GyroEvent( * ( float * ) &arg0, * ( float * ) &arg1 );
+		return 0;
+
 	case UI_REFRESH:
 		UI_Refresh( arg0 );
 		return 0;

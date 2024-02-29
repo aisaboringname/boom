@@ -41,3 +41,4 @@ profile
 *.sdf
 *.opensdf
 *.suo
+*.code-workspace
